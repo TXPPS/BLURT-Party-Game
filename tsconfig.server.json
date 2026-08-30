@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["@cloudflare/workers-types"],
+    "outDir": ".tsbuild/server"
+  },
+  "include": ["server/src/**/*.ts", "shared/**/*.ts", "content/**/*.ts"],
+  "exclude": ["content/**/*.test.ts"]
+}

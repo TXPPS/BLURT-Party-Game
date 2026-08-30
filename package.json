@@ -1,0 +1,57 @@
+{
+  "name": "blurt",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BLURT \u2014 you said it. We decide what it meant. A browser-based multiplayer party game.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "web",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c magenta,cyan \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:server": "wrangler dev --local --config server/wrangler.toml --port 8787",
+    "dev:web": "vite --config web/vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate": "tsx scripts/simulate.ts",
+    "lint": "eslint .",
+    "lint:content": "tsx scripts/contentLint.ts",
+    "typecheck": "tsc -b",
+    "build": "tsc -b && vite build --config web/vite.config.ts",
+    "deploy": "pnpm build && wrangler deploy --config server/wrangler.toml",
+    "screenshots": "tsx scripts/screenshots.ts",
+    "verify": "pnpm lint:content && pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260830.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.0",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.9.1",
+    "playwright": "^1.62.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1",
+    "ws": "^8.21.3",
+    "eslint-plugin-react-hooks": "^7.1.1"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "sharp"
+    ]
+  }
+}
