@@ -272,11 +272,3 @@ export function resolveDrawing(
 
   return { voteCounts, correctVoterIds, fooledCounts, perfect, events };
 }
-
-/** Share of a match's points that came from the finale. Used by the balance test. */
-export function finaleShare(standardEvents: readonly ScoreEvent[], finaleEvents: readonly ScoreEvent[]): number {
-  const standard = totalPoints(standardEvents);
-  const finale = totalPoints(finaleEvents);
-  const total = standard + finale;
-  return total === 0 ? 0 : finale / total;
-}

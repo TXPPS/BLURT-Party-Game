@@ -223,7 +223,15 @@ export interface DrawingGuessView {
   roundId: string;
   artistId: string;
   artistName: string;
-  imageDataUrl: string;
+  /**
+   * An HTTP URL, not a data URL.
+   *
+   * A drawing is up to 200 KB. Inlining it in the view means re-sending it to every
+   * socket on every broadcast — ten players voting one at a time would push several
+   * megabytes through the WebSocket for one picture. As a URL the browser fetches it
+   * once and caches it, and the socket carries a few dozen bytes.
+   */
+  imageUrl: string;
   guessesIn: number;
   guessersTotal: number;
   drawingIndex: number;
@@ -236,7 +244,7 @@ export interface DrawingVoteView {
   roundId: string;
   artistId: string;
   artistName: string;
-  imageDataUrl: string;
+  imageUrl: string;
   options: DrawingOptionView[];
   votesIn: number;
   votersTotal: number;
@@ -250,7 +258,7 @@ export interface DrawingResultsView {
   artistId: string;
   artistName: string;
   artistAvatarId: string;
-  imageDataUrl: string;
+  imageUrl: string;
   options: DrawingResultOption[];
   realOptionId: string;
   perfect: boolean;

@@ -91,7 +91,7 @@ export function Highlights({ highlights }: { highlights: HighlightReel }): React
             <p className="eyebrow">Most convincing lies told about one drawing</p>
             <div className="drawing-frame">
               <img
-                src={highlights.funniestDrawing.imageDataUrl}
+                src={highlights.funniestDrawing.imageUrl}
                 alt={`Drawing by ${highlights.funniestDrawing.artistName}`}
               />
             </div>

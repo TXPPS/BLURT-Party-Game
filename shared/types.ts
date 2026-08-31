@@ -242,7 +242,7 @@ export interface HighlightReel {
     artistId: string;
     artistName: string;
     artistAvatarId: string;
-    imageDataUrl: string;
+    imageUrl: string;
     decoyVotesAttracted: number;
   } | null;
   bestStoryLine: {

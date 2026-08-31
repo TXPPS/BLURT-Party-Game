@@ -213,7 +213,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
       }
       return (
         <GuessForm
-          image={view.imageDataUrl}
+          image={view.imageUrl}
           artist={view.artistName}
           existing={props.privateData?.myDrawingGuess ?? null}
           timer={timer}
@@ -243,7 +243,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
             {timer}
           </div>
           <div className="drawing-frame">
-            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
           </div>
           <div className="answers">
             {options.map((option) => (

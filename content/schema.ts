@@ -125,11 +125,6 @@ export function placeholdersIn(text: string): string[] {
   return [...text.matchAll(PLACEHOLDER_PATTERN)].map((m) => m[1] as string);
 }
 
-/** True when a line is pure prose with nothing inserted into it. */
-export function isStaticLine(line: Line): boolean {
-  return placeholdersIn(line.text).length === 0;
-}
-
 export const storySchema = z
   .object({
     id: z.string().regex(/^[a-z0-9_]+$/).min(3).max(50),
@@ -224,19 +219,6 @@ export type StoryInput = z.input<typeof storySchema>;
 export function minSlots(story: Story): number {
   return story.slots.length;
 }
-
-export function slotById(story: Story, slotId: string): Slot | undefined {
-  return story.slots.find((s) => s.id === slotId);
-}
-
-/** Which section a slot lives in — used to pace story updates section by section. */
-export function sectionForSlot(story: Story, slotId: string): Section | undefined {
-  return story.sections.find((section) =>
-    section.lines.some((line) => placeholdersIn(line.text).includes(slotId)),
-  );
-}
-
-export const storyCollectionSchema = z.array(storySchema).min(1);
 
 /* ------------------------------------------------------------------ *
  * Name pools

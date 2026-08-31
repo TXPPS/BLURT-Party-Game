@@ -12,7 +12,6 @@ import {
   ABANDONED_PHASE_MS,
   DRAWING_RESULTS_AUTO_MS,
   DRAWING_SETUP_MS,
-  REVEAL_HOLD_MS,
 } from '../../../shared/constants.js';
 import {
   advanceDrawingIndex,
@@ -167,6 +166,3 @@ export function advanceFinale(ctx: PhaseContext): void {
   advanceDrawingIndex(ctx.state);
   ctx.goTo('DRAWING_SETUP');
 }
-
-/** Exported for the dispatcher's early-advance check on the reveal beat. */
-export const drawingRevealHoldMs = REVEAL_HOLD_MS;

@@ -260,8 +260,6 @@ export type ServerMessage =
   | SfxMessage
   | PongMessage;
 
-export type ServerMessageType = ServerMessage['t'];
-
 /* ------------------------------------------------------------------ *
  * Transport helpers
  * ------------------------------------------------------------------ */

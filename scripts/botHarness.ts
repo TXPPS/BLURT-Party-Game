@@ -423,25 +423,42 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
   }
 
   // 5. Points reconcile: the sum of every broadcast delta equals the final score.
-  const deltas = new Map<string, number>();
-  const seen = new Set<string>();
+  //
+  // Deduplication is per *results screen*, not per event. A single drawing
+  // legitimately emits several identical `artist_identified` deltas — one per player
+  // who identified it — so keying on (player, reason, points) silently collapses
+  // real events and under-counts the score. Each results phase broadcasts one deltas
+  // array, repeated across every socket and every re-broadcast, so keeping the array
+  // once per (phase, round, drawing) is both correct and complete.
+  const screens = new Map<string, { playerId: string; points: number }[]>();
   for (const bot of bots) {
     for (const message of bot.received) {
       if (message.t !== 'state') continue;
-      const view = message.view as { deltas?: { playerId: string; points: number; reason: string }[] };
+      const view = message.view as {
+        deltas?: { playerId: string; points: number; reason: string }[];
+        roundNumber?: number;
+        drawingIndex?: number;
+      };
       if (view.deltas === undefined) continue;
-      for (const delta of view.deltas) {
-        const key = `${message.phase}:${JSON.stringify(message.room.roundNumber)}:${(message.view as { drawingIndex?: number }).drawingIndex ?? 0}:${delta.playerId}:${delta.reason}:${delta.points}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deltas.set(delta.playerId, (deltas.get(delta.playerId) ?? 0) + delta.points);
-      }
+      const key = `${message.phase}:${view.roundNumber ?? 0}:${view.drawingIndex ?? 0}`;
+      screens.set(key, view.deltas);
     }
   }
+
+  const deltas = new Map<string, number>();
+  for (const list of screens.values()) {
+    for (const delta of list) {
+      deltas.set(delta.playerId, (deltas.get(delta.playerId) ?? 0) + delta.points);
+    }
+  }
+
   for (const player of players) {
     const recomputed = deltas.get(player.id) ?? 0;
     if (recomputed !== player.score) {
-      fail('score reconciliation', `${player.name}: leaderboard ${player.score}, recomputed ${recomputed}`);
+      fail(
+        'score reconciliation',
+        `${player.name}: leaderboard ${player.score}, recomputed ${recomputed}`,
+      );
     }
   }
 

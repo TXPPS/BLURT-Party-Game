@@ -167,9 +167,6 @@ export function pickStorySequence(
 
 export { classicNamePools };
 
-/** Classic pools, ready for `generateName`. */
-export const classicPools: NamePools = classicNamePools;
-
 /**
  * Crude pools, dynamically imported so they are a separate chunk in the browser.
  * Callers merge them with the classic pools — see `shared/nameGenerator.mergePools`.
@@ -206,7 +203,3 @@ export function contentStats(): ContentStats {
 
 export { storySchema, MIN_SLOTS_PER_STORY };
 export type { Story };
-
-/** Re-exported so callers can validate ad-hoc content without importing zod directly. */
-export const validateStory = (raw: unknown): ReturnType<typeof storySchema.safeParse> =>
-  storySchema.safeParse(raw);

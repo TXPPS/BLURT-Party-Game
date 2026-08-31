@@ -10,7 +10,12 @@
  * mutation, and the socket→player mapping rides along in each socket's attachment.
  */
 
-import { BROADCAST_COALESCE_MS, MIN_PLAYERS, PROTOCOL_VERSION } from '../../shared/constants.js';
+import {
+  BROADCAST_COALESCE_MS,
+  MAX_CONNECTIONS_PER_ROOM,
+  MIN_PLAYERS,
+  PROTOCOL_VERSION,
+} from '../../shared/constants.js';
 import type { ClientMessage, ErrorCode, ServerMessage } from '../../shared/protocol.js';
 import { ERROR_COPY } from '../../shared/protocol.js';
 import { isLegalTransition, type Phase } from '../../shared/types.js';
@@ -101,9 +106,29 @@ export class RoomDO implements DurableObject {
       return Response.json({ ok: true, code });
     }
 
+    // Drawings are served over HTTP rather than pushed through every broadcast.
+    // Immutable caching is safe because the URL carries the match's start time, so a
+    // PLAY AGAIN reusing drawing index 0 is a different URL.
+    if (url.pathname === '/drawing') {
+      const index = Number(url.searchParams.get('index') ?? '-1');
+      const bytes = Number.isInteger(index) && index >= 0 ? this.drawings.toBytes(index) : null;
+      if (bytes === null) return new Response('not found', { status: 404 });
+      return new Response(bytes, {
+        headers: {
+          'content-type': 'image/png',
+          'cache-control': 'public, max-age=3600, immutable',
+        },
+      });
+    }
+
     if (url.pathname === '/ws') {
       if (request.headers.get('Upgrade') !== 'websocket') {
         return new Response('expected websocket', { status: 426 });
+      }
+      // Ten players plus a couple of spare display sockets. Without this, sockets
+      // that never send a handshake could pile up indefinitely.
+      if (this.ctx.getWebSockets().length >= MAX_CONNECTIONS_PER_ROOM) {
+        return new Response('room is at its connection limit', { status: 503 });
       }
       this.origin = url.searchParams.get('origin') ?? this.origin;
 
@@ -295,6 +320,10 @@ export class RoomDO implements DurableObject {
       clearTimer(room, 'phase');
       PHASE_HANDLERS[target].onEnter(control);
 
+      // A phase can *begin* already blocked on somebody who is offline — they left
+      // during the previous phase, so no disconnect event will arrive to shorten it.
+      PHASE_HANDLERS[target].onPresenceChange?.(control);
+
       // A phase that is already satisfied on entry falls straight through, which is
       // how a round with no eligible competitors skips instead of stalling.
       if (box.pending === null && PHASE_HANDLERS[target].isComplete(control)) {
@@ -405,6 +434,11 @@ export class RoomDO implements DurableObject {
       storeDrawing: (index, dataUrl) => {
         this.ctx.waitUntil(this.drawings.put(index, dataUrl));
       },
+      clearDrawings: () => {
+        // Otherwise a second match reuses drawing indices and the cache would hand
+        // back the previous match's picture for an artist who has not submitted yet.
+        this.ctx.waitUntil(this.drawings.clear());
+      },
       evict: (playerId, code) => {
         for (const socket of this.socketsFor(playerId)) {
           this.send(socket, { t: 'error', code, ...copy(code), fatal: true });
@@ -464,7 +498,7 @@ export class RoomDO implements DurableObject {
 
     const publicRoom = buildPublicRoom(room);
     const players = room.players.filter((p) => !p.kicked).map((p) => toPublicPlayer(p, now));
-    const view = buildPublicView(room, now, (index) => this.drawings.peek(index), this.joinUrl(room));
+    const view = buildPublicView(room, now, (index) => this.drawingUrl(room, index), this.joinUrl(room));
 
     for (const socket of this.ctx.getWebSockets()) {
       const meta = this.metaOf(socket);
@@ -503,6 +537,16 @@ export class RoomDO implements DurableObject {
 
   private joinUrl(room: RoomState): string {
     return this.origin.length > 0 ? `${this.origin}/?room=${room.code}` : '';
+  }
+
+  /**
+   * A cacheable URL for one drawing. The match start time is in the query so that a
+   * PLAY AGAIN reusing drawing index 0 never serves the previous match's picture out
+   * of the browser cache.
+   */
+  private drawingUrl(room: RoomState, index: number): string {
+    const version = room.match?.startedAt ?? 0;
+    return `/api/rooms/${room.code}/drawing/${index}?v=${version}`;
   }
 
   /* ---------------------------------------------------------------- *

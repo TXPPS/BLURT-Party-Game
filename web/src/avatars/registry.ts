@@ -56,5 +56,3 @@ export function defaultAvatarId(seed: string): string {
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   return classicAvatars[hash % classicAvatars.length]?.id ?? 'raccoon';
 }
-
-export const CLASSIC_AVATAR_COUNT = classicAvatars.length;

@@ -34,8 +34,12 @@ import {
 import { freshSlotIds, renderMatchStories, slotFor, storyById } from './story.js';
 import type { DrawingRecord, MatchupRecord, RoomState, ServerPlayer } from './types.js';
 
-/** Supplies the drawing PNGs, which live outside the JSON state (see `drawingStore.ts`). */
-export type ImageLookup = (drawingIndex: number) => string | null;
+/**
+ * Builds the HTTP URL for a drawing. The bytes live outside the JSON state (see
+ * `drawingStore.ts`) and are served by the room's own `/api/rooms/:code/drawing`
+ * route, so they never travel over the WebSocket.
+ */
+export type ImageLookup = (drawingIndex: number) => string;
 
 export function deadlineFor(state: RoomState): Deadline {
   return {
@@ -344,7 +348,7 @@ export function buildPublicView(
         roundId: drawing?.roundId ?? '',
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
-        imageDataUrl: images(match?.drawingIndex ?? 0) ?? '',
+        imageUrl: images(match?.drawingIndex ?? 0),
         guessesIn: Object.keys(drawing?.guesses ?? {}).length,
         guessersTotal: guessers.length,
         drawingIndex: (match?.drawingIndex ?? 0) + 1,
@@ -361,7 +365,7 @@ export function buildPublicView(
         roundId: drawing?.roundId ?? '',
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
-        imageDataUrl: images(match?.drawingIndex ?? 0) ?? '',
+        imageUrl: images(match?.drawingIndex ?? 0),
         options: (drawing?.options ?? []).map((o) => ({ id: o.id, text: o.text })),
         votesIn: Object.keys(drawing?.votes ?? {}).length,
         votersTotal: voters.length,
@@ -385,7 +389,7 @@ export function buildPublicView(
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
         artistAvatarId: artist?.avatarId ?? '',
-        imageDataUrl: images(match?.drawingIndex ?? 0) ?? '',
+        imageUrl: images(match?.drawingIndex ?? 0),
         options: (drawing?.options ?? []).map((option) => {
           const author = option.authorId === null ? undefined : findPlayer(state, option.authorId);
           return {

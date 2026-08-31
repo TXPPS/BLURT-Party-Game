@@ -14,12 +14,12 @@ findings are **fixed**, not merely recorded.
 |---|-------|-----------|--------|---------|--------------|
 | 0 | Preflight | Executive Producer / Technical Director | ✅ complete | DevOps / Deployment Engineer | PASS — toolchain verified, registry reachable, Chromium present |
 | 1 | Architecture lock-in + `/shared` + `/content` | Executive Producer / Technical Director | ✅ complete | Final Integration Reviewer | PASS — 174 unit tests green, contentLint clean, eslint clean |
-| 2 | Core multiplayer | Multiplayer / Network Engineer | ⏳ pending | QA Engineer | — |
-| 3 | Identity (names + avatars) | Content System Designer + Visual/Brand Designer | ⏳ pending | Security / Abuse Prevention | — |
-| 4 | Standard gameplay | Gameplay Systems Engineer | ⏳ pending | QA Engineer | — |
-| 5 | Drawing finale | Gameplay Systems Engineer + Frontend | ⏳ pending | QA Engineer | — |
-| 6 | Results / awards | Gameplay Systems Engineer | ⏳ pending | Game UX Designer | — |
-| 7 | Audio + polish | Audio/SFX Designer + Visual/Brand Designer | ⏳ pending | Accessibility Reviewer | — |
+| 2 | Core multiplayer | Multiplayer / Network Engineer | ✅ complete | QA Engineer | PASS — two contexts join, kill one, refresh, identity + score + phase restored |
+| 3 | Identity (names + avatars) | Content System Designer + Visual/Brand Designer | ✅ complete | Security / Abuse Prevention | PASS — 17,293 classic combos, adversarial pair filter green, 18 + 12 avatars |
+| 4 | Standard gameplay | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — full matches complete via harness at 2/4/10, both modes |
+| 5 | Drawing finale | Gameplay Systems Engineer + Frontend | ✅ complete | QA Engineer | PASS — finale completes at 3 and 8 players; degrades cleanly on every skip |
+| 6 | Results / awards | Gameplay Systems Engineer | ✅ complete | Game UX Designer | PASS — every award has a qualifier or a documented fallback at 2–10 players |
+| 7 | Audio + polish | Audio/SFX Designer + Visual/Brand Designer | ✅ complete | Accessibility Reviewer | PASS — 35 synthesised events, zero audio files; touch targets and reduced-motion fixed |
 | 8 | QA (bot harness + matrix) | QA Engineer | ⏳ pending | Executive Producer | — |
 | 9 | Visual audit | Visual/Brand Designer + Accessibility Reviewer | ⏳ pending | Game UX Designer | — |
 | 10 | Functional audit | Game UX Designer | ⏳ pending | Executive Producer | — |
@@ -181,6 +181,62 @@ npx eslint          ✓ clean
 
 ---
 
+## PHASES 2–7 — SERVER AUTHORITY, GAMEPLAY, CLIENT
+
+**Driving roles:** Multiplayer / Network Engineer → Gameplay Systems Engineer →
+Frontend / UI Engineer → Visual / Brand Designer → Audio / SFX Designer
+**Auditors:** QA Engineer, Security / Abuse Prevention Engineer, Accessibility Reviewer
+
+The order here was deliberate: the bot harness was built *immediately* after the
+first playable server, before any UI existed. Every defect below was found by
+running the thing, not by reading it.
+
+### Defects found and fixed
+
+| ID | Sev | What | How it was found | Fix |
+|----|-----|------|------------------|-----|
+| **I5** | **S1** | **Voters never received the `roundId`.** `submit_vote` requires it, but only *competitors* got one, in their private payload. No client could vote. Every vote phase resolved on its 20-second timeout instead. | Bot harness: a 3-round match took 75s and phase tracing showed `ROUND_VOTE` burning exactly 20.00s every round. | `roundId` moved onto the public view for every phase that accepts a submission. A 3-round match went 75s → 15s. |
+| **I6** | **S1** | **No answer or guess could be submitted from the UI at all.** `ActionButton` disables itself inside its click handler; the browser dispatches the form's `submit` event *after* the click, and a disabled submitter cancels that submission outright. The message never left the client. | Playwright: competitors' devices sat on "TYPING…" with the timer running down. The server log showed *no rejection*, which proved the frame never arrived. | `ActionButton` now forces `type="button"` and the prop is `Omit`ed from its type, so the misuse cannot compile. Forms call one explicit `send()` from both the button and the Enter key. |
+| **I7** | **S1** | **React batched the `state` and `private` frames**, so the phase-change effect that cleared the private payload ran *after* the payload arrived and wiped the live prompt. | Playwright: competitors intermittently had no answer box. | Staleness is a comparison, not a timing question: the payload is stamped with the phase it arrived during and simply not surfaced if the room has moved on. |
+| **I8** | **S2** | A grace sweep changed who was eligible **without re-checking whether the current phase had become complete**, so a room could sit out a 112-second drawing timer for somebody who had already been swept out. | Fault case "player leaves during drawing" took 186s and failed. | `settlePhase()` re-asks the current phase after any presence change, and a new `onPresenceChange` hook lets a phase shorten its own deadline to 22s when it is blocked on a single absent person. Also fires on phase *entry*, since a phase can begin already blocked. |
+| **I9** | **S2** | **The host could never satisfy the ready check.** The lobby shows READY only to non-hosts, but `startBlock` required every player ready — so START was permanently disabled. | Playwright: `START THE GAME` resolved to `<button disabled>`. | The host is implicitly ready; pressing START *is* their readiness. |
+| **I10** | **S2** | The warm cream paper rendered **grey**. `background-blend-mode: multiply` on `body` *plus* a `::before` grain overlay applied the noise twice. | Visual audit at 390px — the page background was visibly a different colour from the cards. | Grain applied once, by the overlay, at 3% opacity. |
+| **I11** | **S2** | Icon-only controls (⚙, ✕) were 40px — under the 48×48 minimum. | Accessibility review of the captured lobby. | `.btn--icon` at the full `--tap-min`; `.btn--small` raised to 44px. |
+| **I12** | **S3** | Player names truncated to 11 characters (`Suspicious …`) even where there was room, and the 10-player roster rendered as ten full-width rows. | Visual audit of the 10-player lobby. | Chips get the full 21ch; only the tight header slot opts into a short clamp. Roster items size to content and wrap. |
+| **I13** | **S3** | The room code overflowed its panel in the condensed group view — `--t-code` is viewport-relative, but the panel is narrow there. | Visual audit at 390px. | The code sizes against its *container* (`21cqw` inside a `container-type: inline-size` panel), with the viewport clamp as the `@supports` fallback. |
+| **I14** | **S3** | A burst of joins stacked four toasts and buried the settings panel. | Visual audit of the 10-player lobby. | Toast stack capped at three. |
+| **I15** | **S3** | The self-vote fault case could never fire: above two players a competitor is not in the voter list, so the server correctly answers `NOT_YOUR_TURN` before the self-vote check is reached. The *test* was wrong, not the server. | Fault suite. | Split into two cases — `SELF_VOTE` at 2 players (the only configuration where a competitor is also a voter) and `NOT_YOUR_TURN` at 4. |
+| **I16** | **S3** | ESLint was linting `web/dist`, reporting 3,270 errors in bundled React. | `pnpm lint`. | Ignore globs made recursive (`**/dist/**`). |
+
+Note on **I5** and **I6**: either one alone made the game unplayable, and neither is
+visible in the source. Both were only discoverable by driving the real thing — which
+is the entire argument for building the harness before the UI.
+
+### Architecture notes worth recording
+
+- **Hibernation is safe** because every mutation is persisted and the socket→player
+  mapping lives in the socket's own attachment. Drawings are the one thing that
+  cannot fit in the state blob (128 KiB per-value limit vs a 200 KB protocol cap), so
+  they are chunked into their own keys.
+- **The redaction boundary is a type.** `RevealAnswer` has no author field at all, so
+  leaking authorship during a reveal or a vote is a compile error rather than a
+  code-review question. The harness independently asserts it against captured frames.
+- **The phase registry has no special cases.** `PHASE_HANDLERS` plus a legal-edge
+  table; the dispatcher looks a handler up and calls it. Adding a phase means adding a
+  handler and an edge.
+
+### Phase 2–7 verification
+
+```
+pnpm typecheck   ✓ three projects (web / server / tools)
+pnpm lint        ✓ clean
+pnpm test        ✓ 174 tests
+pnpm lint:content ✓
+vite build       ✓ 92 KB gzipped initial, against a 250 KB budget
+```
+
+---
+
 ## OPEN ISSUES
 
 | ID | Sev | Description | Fix | Status |
@@ -189,6 +245,18 @@ npx eslint          ✓ clean
 | I2 | S2 | Eight disguised prompts leaked their story's context or echoed its title. | Rewrote the prompts/prose; added two lints that fail the build on a recurrence. | ✅ fixed |
 | I3 | S2 | Blocklist letter-squashing produced false positives on ordinary words ("speed", "con"). | Two-tier folding: substring match for long roots, whole-word match for short ones. | ✅ fixed |
 | I4 | S3 | Story title would have been visible on the setup screen, spoiling the hidden-context hook. | `PublicRoom.storyTitle` stays null until the first STORY_UPDATE. | ✅ fixed in Phase 4 |
+| I5 | S1 | Voters never received the `roundId`, so no client could vote; the phase only ever ended on its timeout. | `roundId` moved onto the public view for every submission phase. | ✅ fixed |
+| I6 | S1 | `ActionButton` disabled itself on click, cancelling the form submission it was meant to trigger — no answer or guess could be sent from the UI. | Forced `type="button"`, `Omit`ed from the prop type, explicit `send()` shared by button and Enter key. | ✅ fixed |
+| I7 | S1 | React batched `state` and `private`, so the phase-change effect wiped the prompt that had just arrived. | The private payload is stamped with its phase and filtered on read. | ✅ fixed |
+| I8 | S2 | A grace sweep changed eligibility without re-checking phase completion, stranding a room on a 112s drawing timer. | `settlePhase()` plus an `onPresenceChange` hook that shortens a deadline to 22s when a phase is blocked on one absent person. | ✅ fixed |
+| I9 | S2 | The host had no READY control but was required to be ready; START could never enable. | Host is implicitly ready — START *is* their readiness. | ✅ fixed |
+| I10 | S2 | Double-applied paper grain turned the warm cream background grey. | Grain applied once, at 3% opacity. | ✅ fixed |
+| I11 | S2 | Icon-only controls were 40px, under the 48×48 touch minimum. | `.btn--icon` at full `--tap-min`; `.btn--small` raised to 44px. | ✅ fixed |
+| I12 | S3 | Names truncated at 11 chars; the 10-player roster rendered as ten full-width rows. | Full 21ch chips; roster items size to content and wrap. | ✅ fixed |
+| I13 | S3 | The room code overflowed its panel in the condensed group view. | Container-query sizing with the viewport clamp as fallback. | ✅ fixed |
+| I14 | S3 | A burst of joins stacked four toasts over the settings panel. | Toast stack capped at three. | ✅ fixed |
+| I15 | S3 | The self-vote fault case could never fire at 4 players — the *test* was wrong. | Split into a 2-player `SELF_VOTE` case and a 4-player `NOT_YOUR_TURN` case. | ✅ fixed |
+| I16 | S3 | ESLint linted `web/dist`, reporting 3,270 errors in bundled React. | Recursive ignore globs. | ✅ fixed |
 
 Severity scale: **S1** ship-blocker · **S2** major · **S3** minor · **S4** polish
 

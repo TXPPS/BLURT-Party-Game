@@ -9,7 +9,6 @@
 import {
   DISCONNECT_GRACE_MS,
   HOST_MIGRATION_DELAY_MS,
-  MAX_PLAYERS,
   MIN_PLAYERS,
   ROOM_IDLE_EXPIRY_MS,
   ROOM_MAX_LIFETIME_MS,
@@ -74,20 +73,6 @@ export function createPlayer(now: number, isHost: boolean): ServerPlayer {
 
 export function findPlayer(state: RoomState, playerId: string): ServerPlayer | undefined {
   return state.players.find((p) => p.id === playerId);
-}
-
-/** Players who still hold a seat — everyone except those the host removed. */
-export function seatedPlayers(state: RoomState): ServerPlayer[] {
-  return state.players.filter((p) => !p.kicked);
-}
-
-/** Counts toward the room capacity: anyone holding a seat who has not departed. */
-export function occupancy(state: RoomState): number {
-  return state.players.filter((p) => !p.kicked && !p.departed).length;
-}
-
-export function isRoomFull(state: RoomState): boolean {
-  return occupancy(state) >= MAX_PLAYERS;
 }
 
 /**

@@ -240,5 +240,3 @@ export function resolveEvent(event: SfxEventId, mode: 'classic' | 'crude'): SfxE
   if (Math.random() < 0.5) return event;
   return CRUDE_SUBSTITUTIONS[event] ?? event;
 }
-
-export const SFX_LIBRARY_SIZE = Object.keys(LIBRARY).length;

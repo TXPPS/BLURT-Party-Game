@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import type { MixerLevels } from '../audio/synth.js';
 import type { DevicePrefs } from '../net/session.js';
-import { Button, Card, Modal } from './kit.js';
+import { Button, Modal } from './kit.js';
 
 /**
  * The Crude gate. Shown once per device per session, with real hazard-tape styling
@@ -202,5 +202,3 @@ export function Toasts({
     </div>
   );
 }
-
-export { Card };

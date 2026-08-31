@@ -71,9 +71,7 @@ export const RECENT_STORY_MEMORY = 4;
  * ------------------------------------------------------------------ */
 
 export const NAME_MAX_LENGTH = 20;
-export const NAME_MIN_LENGTH = 1;
 export const ANSWER_MAX_LENGTH = 160;
-export const ANSWER_MIN_LENGTH = 1;
 export const DRAWING_GUESS_MAX_LENGTH = 100;
 
 /** Rasterised PNG data-URL ceiling. Larger submissions are rejected with a toast. */
@@ -174,10 +172,13 @@ export const COMPETITORS_TWO_UP_TO = 5;
 /** Above this player count every matchup is a three-way. */
 export const COMPETITORS_THREE_FROM = 9;
 
-/** Weight on "how far below the fairest appearance count is this player". */
-export const MATCHMAKING_W_APPEARANCES = 1000;
-
-/** Weight on "how many rounds since this player last competed". */
+/**
+ * Weight on "how many rounds since this player last competed".
+ *
+ * Appearance balance is handled structurally by the bucketing in `matchmaking.ts`
+ * rather than by a weight, so recency and the back-to-back penalty are the only two
+ * numbers that need tuning.
+ */
 export const MATCHMAKING_W_RECENCY = 10;
 
 /** Penalty applied to anyone who competed in the immediately preceding matchup. */

@@ -133,11 +133,3 @@ export function parseClientMessage(raw: string | ArrayBuffer): ParseResult {
 
   return { ok: true, message: result.data as ClientMessage };
 }
-
-/**
- * Byte length of a drawing payload. A base64 data URL is ASCII, so the string
- * length *is* the byte length, which keeps this cheap enough to run per message.
- */
-export function payloadBytes(value: string): number {
-  return value.length;
-}

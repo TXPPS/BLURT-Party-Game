@@ -80,14 +80,13 @@ export function buildHighlightReel(state: RoomState, images: ImageLookup): Highl
     const decoyVotes = Object.values(outcome.fooledCounts).reduce((a, b) => a + b, 0);
     if (decoyVotes <= bestDecoyPull) return;
     const artist = state.players.find((p) => p.id === drawing.artistId);
-    const image = images(index);
-    if (artist === undefined || image === null) return;
+    if (artist === undefined || !drawing.hasImage) return;
     bestDecoyPull = decoyVotes;
     funniestDrawing = {
       artistId: artist.id,
       artistName: artist.name,
       artistAvatarId: artist.avatarId,
-      imageDataUrl: image,
+      imageUrl: images(index),
       decoyVotesAttracted: decoyVotes,
     };
   });

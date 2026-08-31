@@ -38,6 +38,8 @@ export interface HandlerContext {
   fail(code: ErrorCode, message?: string): void;
   /** Persist a drawing outside the JSON state. */
   storeDrawing(index: number, dataUrl: string): void;
+  /** Drop every stored drawing. Called when a match ends. */
+  clearDrawings(): void;
   /** Remove a player's sockets with a reason. */
   evict(playerId: string, code: ErrorCode): void;
 }
@@ -300,6 +302,7 @@ function drawingVote(ctx: HandlerContext, roundId: string, optionId: string): vo
 
 function playAgain(ctx: HandlerContext): void {
   // Everyone keeps their seat, name, avatar and settings; scores and stats reset.
+  ctx.clearDrawings();
   resetForNewMatch(ctx.state);
   const started = startMatch(ctx.state, ctx.now);
   if (!started.ok) {
@@ -313,6 +316,7 @@ function playAgain(ctx: HandlerContext): void {
 }
 
 function returnToLobby(ctx: HandlerContext): void {
+  ctx.clearDrawings();
   resetForNewMatch(ctx.state);
   ctx.goTo('LOBBY');
 }

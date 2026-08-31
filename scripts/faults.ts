@@ -184,10 +184,13 @@ export const FAULT_CASES: readonly FaultCase[] = [
   },
   {
     config: {
+      // Nobody draws, so every drawing phase burns its full 2.5x timer (112s at
+      // FAST) before moving on. That is correct — a present artist might simply be
+      // drawing slowly — so the case just needs the wall clock to match.
       label: 'artist never draws',
       players: 4, rounds: 3, mode: 'classic', drawing: true, timer: 'fast',
       behaviours: { 0: { skipDrawing: true }, 1: { skipDrawing: true }, 2: { skipDrawing: true }, 3: { skipDrawing: true } },
-      timeoutMs: 300_000,
+      timeoutMs: 600_000,
     },
   },
   {

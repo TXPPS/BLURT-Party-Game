@@ -35,13 +35,22 @@
   margin-top: var(--s-2);
 }
 
+/**
+ * The room code is the largest thing on the shared screen, because somebody has to
+ * read it off a TV from the sofa.
+ *
+ * It sizes against its *container*, not the viewport: the same panel appears full
+ * width on a big screen and inside a narrow condensed strip under a player's
+ * controls, and a viewport-relative size overflows the second one. `--t-code` stays
+ * as the fallback for browsers without container queries.
+ */
 .roomcode {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--t-code);
   line-height: 1;
   letter-spacing: 0.12em;
-  /* Trailing letter-spacing would push the block off-centre. */
+  /* Trailing letter-spacing would otherwise push the block off-centre. */
   padding-left: 0.12em;
   color: var(--c-ink);
   text-align: center;
@@ -50,13 +59,23 @@
   word-break: keep-all;
 }
 
+@supports (container-type: inline-size) {
+  .roomcode {
+    /* Four glyphs plus letter-spacing fit comfortably inside 21% of the container. */
+    font-size: clamp(2.6rem, 21cqw, 11rem);
+  }
+}
+
 .roomcode__panel {
+  container-type: inline-size;
   background: var(--c-marigold);
   border: var(--border) solid var(--c-ink);
   border-radius: var(--r-card-loose);
   box-shadow: var(--shadow-lg);
   padding: var(--s-4) var(--s-5);
   transform: rotate(-1deg);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .joinurl {

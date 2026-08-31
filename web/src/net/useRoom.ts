@@ -42,6 +42,12 @@ export interface RoomHandle {
 /** How long a toast stays on screen. */
 const TOAST_MS = 4200;
 
+/**
+ * Countdown updates are quantised to this. At the longest phase (120s) that is ~240
+ * updates over the whole phase rather than ~7,200.
+ */
+const RING_QUANTUM_MS = 500;
+
 export function useRoom(
   code: string | null,
   intent: 'create' | 'join',
@@ -179,9 +185,20 @@ export function useCountdown(
     startedRef.current = Math.max(1, endsAt - serverNow());
 
     let frame = 0;
+    let lastPushed = -1;
     const tick = (): void => {
       const left = Math.max(0, endsAt - serverNow());
-      setRemainingMs(left);
+      // Only re-render when something *visible* changes.
+      //
+      // Setting state every animation frame re-renders the whole screen 60 times a
+      // second for a number that changes once a second, which is exactly the kind of
+      // thing that makes a mid-range Android phone feel broken. The ring is quantised
+      // to 200 steps, which is finer than a pixel on any real device.
+      const quantised = Math.round(left / RING_QUANTUM_MS);
+      if (quantised !== lastPushed) {
+        lastPushed = quantised;
+        setRemainingMs(left);
+      }
       if (left <= 0 && !expiredRef.current) {
         expiredRef.current = true;
         onExpireRef.current?.();

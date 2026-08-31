@@ -17,7 +17,7 @@ import { makeRng, randomInt, roundSeed, type Rng } from '../../shared/rng.js';
 import { resolveMatchup, type MatchupAnswer, type ScoreEvent } from '../../shared/scoring.js';
 import { houseFallbackFor } from '../../shared/storyEngine.js';
 import { shortId } from './ids.js';
-import { eligiblePlayers, findPlayer, matchmakingView, nextSeq } from './roomState.js';
+import { findPlayer, matchmakingView, nextSeq } from './roomState.js';
 import { fillKey, planMatch, rememberStories, slotFor, storyById } from './story.js';
 import type { MatchState, MatchupRecord, RoomState } from './types.js';
 
@@ -349,9 +349,4 @@ export function isLastMatchup(state: RoomState): boolean {
 
 export function advanceMatchupIndex(state: RoomState): void {
   if (state.match !== null) state.match.matchupIndex += 1;
-}
-
-/** Everyone still in the room who could be asked to do something. */
-export function activeCount(state: RoomState, now: number): number {
-  return eligiblePlayers(state, now).length;
 }

@@ -112,6 +112,17 @@ export default {
       return json({ code, ...(await probe(env, code)) });
     }
 
+    // Drawings, served from the room that owns them. Kept on /api/* so the
+    // single-page-application fallback never swallows it.
+    const drawingLookup = /^\/api\/rooms\/([A-Za-z]{4})\/drawing\/(\d{1,3})$/.exec(url.pathname);
+    if (drawingLookup !== null && request.method === 'GET') {
+      const code = normalizeRoomCode(drawingLookup[1]);
+      if (!isValidRoomCode(code)) return new Response('invalid room code', { status: 400 });
+      const forward = new URL('https://room/drawing');
+      forward.searchParams.set('index', drawingLookup[2] ?? '0');
+      return stubFor(env, code).fetch(forward);
+    }
+
     if (url.pathname === '/ws') {
       const requested = url.searchParams.get('code') ?? '';
       let code = normalizeRoomCode(requested);

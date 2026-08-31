@@ -76,6 +76,21 @@ export class DrawingStore {
     }
   }
 
+  /**
+   * Decode a stored drawing to raw PNG bytes for the HTTP route.
+   * Returns null when there is nothing stored for that index.
+   */
+  toBytes(index: number): Uint8Array | null {
+    const dataUrl = this.peek(index);
+    if (dataUrl === null) return null;
+    const comma = dataUrl.indexOf(',');
+    if (comma < 0) return null;
+    const binary = atob(dataUrl.slice(comma + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
   /** Drop every drawing — used by PLAY AGAIN and by room destruction. */
   async clear(): Promise<void> {
     this.cache.clear();

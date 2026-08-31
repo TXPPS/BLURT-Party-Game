@@ -32,10 +32,26 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
   const countdown = useCountdown(deadline, props.serverNow);
   const byId = new Map(state.players.map((p) => [p.id, p]));
 
+  /**
+   * In condensed mode this component sits *underneath* a player's own controls, which
+   * already carry the timer, the round counter and — if they are competing — the
+   * prompt itself. Repeating all of that doubles the scroll on a phone for no
+   * information, so the condensed strip drops everything the player already has.
+   */
   const timer =
-    deadline === null ? null : (
+    deadline === null || condensed ? null : (
       <TimerRing seconds={countdown.seconds} fraction={countdown.fraction} label="Time left" />
     );
+
+  const amCompeting = state.you.role === 'COMPETITOR';
+  const showPrompt = !condensed || !amCompeting;
+
+  const roundHeader = condensed ? null : (
+    <p className="eyebrow">
+      Round {'roundNumber' in view ? view.roundNumber : 0} of{' '}
+      {'totalRounds' in view ? view.totalRounds : 0}
+    </p>
+  );
 
   const advance =
     props.isHost && !condensed ? (
@@ -92,14 +108,14 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
       return (
         <div className="stack">
           <div className="row row--between">
-            <p className="eyebrow">
-              Round {view.roundNumber} of {view.totalRounds}
-            </p>
+            {roundHeader}
             {timer}
           </div>
-          <div className="prompt">
-            <p className="prompt__text breakable">{view.prompt}</p>
-          </div>
+          {showPrompt && (
+            <div className="prompt">
+              <p className="prompt__text breakable">{view.prompt}</p>
+            </div>
+          )}
           <div className="stack stack--tight">
             <p className="eyebrow center">Answering</p>
             <ul className="roster row--center">
@@ -133,21 +149,23 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
       return (
         <div className="stack">
           <div className="row row--between">
-            <p className="eyebrow">
-              Round {view.roundNumber} of {view.totalRounds}
-            </p>
+            {roundHeader}
             {timer}
           </div>
           <div className="prompt">
             <p className="prompt__text breakable">{view.prompt}</p>
           </div>
-          <div className="answers answers--wide">
-            {view.answers.map((answer) => (
-              <div key={answer.id} className="answer breakable">
-                {answer.text}
-              </div>
-            ))}
-          </div>
+          {/* The vote screen already lists the answers as buttons; repeating them
+              underneath is noise. The reveal is the one beat everybody should read. */}
+          {(view.phase === 'ROUND_REVEAL' || !condensed) && (
+            <div className="answers answers--wide">
+              {view.answers.map((answer) => (
+                <div key={answer.id} className="answer breakable">
+                  {answer.text}
+                </div>
+              ))}
+            </div>
+          )}
           {view.phase === 'ROUND_VOTE' ? (
             <Progress done={view.votesIn} total={view.votersTotal} label="Votes in" />
           ) : (
@@ -232,6 +250,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             </p>
             {timer}
           </div>
+
           <PhaseTitle title={`${view.artistName} is drawing`} sub="Nobody else knows what." />
           <Waiting message={view.phase === 'DRAWING_ACTIVE' && view.submitted ? 'Finished' : 'Scribbling'} />
         </div>
@@ -245,7 +264,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             {timer}
           </div>
           <div className="drawing-frame">
-            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
           </div>
           <Progress done={view.guessesIn} total={view.guessersTotal} label="Guesses in" />
         </div>
@@ -259,7 +278,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             {timer}
           </div>
           <div className="drawing-frame">
-            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
           </div>
           <div className="answers answers--wide">
             {view.options.map((option) => (
@@ -280,7 +299,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             title={view.perfect ? 'Everyone got it' : 'The truth'}
           />
           <div className="drawing-frame">
-            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
           </div>
           <div className="answers answers--wide">
             {view.options.map((option) => (
