@@ -63,18 +63,19 @@ const CensorBar = (): React.JSX.Element => (
 
 const Butt = (): React.JSX.Element => (
   <Frame>
-    <path d="M32 14c12 0 20 9 20 20s-8 18-20 18-20-8-20-18 8-20 20-20z" fill="#F0C9A4" />
-    <path d="M32 16v34" strokeWidth={3} />
-    <path d="M20 30c-4 2-6 6-6 10M44 30c4 2 6 6 6 10" strokeWidth={2.4} stroke="currentColor" />
+    {/* Two overlapping lobes: an actual outline rather than a disc with a line on it. */}
+    <path d="M32 15c-4-4-11-4-15 0-5 5-6 15-3 22 3 8 10 12 18 12s15-4 18-12c3-7 2-17-3-22-4-4-11-4-15 0z" fill="#F0C9A4" />
+    <path d="M32 15v33" strokeWidth={3.4} />
   </Frame>
 );
 
 const HairyButt = (): React.JSX.Element => (
   <Frame>
-    <path d="M32 14c12 0 20 9 20 20s-8 18-20 18-20-8-20-18 8-20 20-20z" fill="#E8BE96" />
-    <path d="M32 16v34" strokeWidth={3} />
-    <path d="M18 22c-2-3-5-4-8-3M46 22c2-3 5-4 8-3M14 34h-6M50 34h6M18 46c-2 3-5 4-8 4M46 46c2 3 5 4 8 4" strokeWidth={2.4} />
-    <path d="M24 12c0-3 2-5 4-6M36 12c0-3 2-5 4-6" strokeWidth={2.4} stroke="currentColor" />
+    {/* Tufts drawn first and left proud of the body: a spiky outline reads at any size. */}
+    <path d="M13 26c-4-3-6-7-5-11M51 26c4-3 6-7 5-11M9 38H2M55 38h7M15 51c-3 3-7 4-10 3M49 51c3 3 7 4 10 3M22 13c-1-4 0-8 2-10M42 13c1-4 0-8-2-10"
+      stroke={INK} strokeWidth={3.4} />
+    <path d="M32 15c-4-4-11-4-15 0-5 5-6 15-3 22 3 8 10 12 18 12s15-4 18-12c3-7 2-17-3-22-4-4-11-4-15 0z" fill="#D9A87E" />
+    <path d="M32 15v33" strokeWidth={3.4} />
   </Frame>
 );
 
@@ -91,11 +92,13 @@ const Poop = (): React.JSX.Element => (
 
 const Condom = (): React.JSX.Element => (
   <Frame>
-    <rect x="12" y="14" width="40" height="36" rx="6" fill="#E4572E" />
-    <path d="M12 24h40M12 40h40" strokeWidth={2.4} />
-    <circle cx="32" cy="32" r="7" fill="#FFFBF2" />
-    <path d="M28 32h8M32 28v8" strokeWidth={2.6} />
-    <path d="M18 8c3 3 9 3 12 0M36 8c3 3 9 3 10 0" strokeWidth={2.4} stroke="currentColor" />
+    {/* Torn top edge. A clean rectangle is a box; a ragged one is a wrapper. */}
+    <path d="M11 18l5-4 5 4 5-4 5 4 5-4 5 4 5-4 5 4v30c0 2-2 4-4 4H15c-2 0-4-2-4-4z" fill="#E8622F" />
+    <path d="M11 24h42" stroke="#A63C15" strokeWidth={2.4} />
+    {/* The ring pressed through the foil, which is the giveaway. */}
+    <circle cx="32" cy="38" r="9" fill="none" stroke="#A63C15" strokeWidth={3} />
+    <circle cx="32" cy="38" r="3.4" fill="#A63C15" stroke="none" />
+    <path d="M17 52h12" stroke="#A63C15" strokeWidth={2.2} />
   </Frame>
 );
 
@@ -112,21 +115,28 @@ const WhoopeeCushion = (): React.JSX.Element => (
 
 const BeerGut = (): React.JSX.Element => (
   <Frame>
-    <path d="M14 24c0-6 8-10 18-10s18 4 18 10c0 4-1 6-1 10 0 10-7 18-17 18s-17-8-17-18c0-4-1-6-1-10z" fill="#F0C9A4" />
-    <path d="M14 26c6 4 30 4 36 0" strokeWidth={2.6} />
-    <circle cx="32" cy="40" r="4" fill="none" strokeWidth={2.6} />
-    <path d="M22 18c2-3 6-4 9-3M40 18c-2-3-5-4-8-3" strokeWidth={2.4} />
-    <path d="M8 44c-3 2-4 5-3 8M56 44c3 2 4 5 3 8" strokeWidth={2.4} stroke="currentColor" />
+    <path d="M13 26c0-7 9-12 19-12s19 5 19 12c0 5-1 7-1 12 0 11-8 19-18 19s-18-8-18-19c0-5-1-7-1-12z" fill="#F0C9A4" />
+    {/* Waistband cutting across the bottom: the gut has to be overhanging something. */}
+    <path d="M13 44c6 5 32 5 38 0v7c-6 5-32 5-38 0z" fill="#3E5C76" />
+    <path d="M28 44v7M36 44v7" stroke="#243A4D" strokeWidth={2.2} />
+    <circle cx="32" cy="33" r="4.4" fill="none" strokeWidth={3} />
+    {/* A can, held. Outside the body, so it survives being tiny. */}
+    <rect x="48" y="20" width="12" height="17" rx="2.5" fill="#C23B4B" />
+    <path d="M48 26h12" strokeWidth={2.2} />
   </Frame>
 );
 
 const GasCloud = (): React.JSX.Element => (
   <Frame>
-    <path d="M18 40c-6 0-10-4-10-9s4-9 9-9c1-7 7-12 14-12s13 5 14 12c5 0 9 4 9 9s-4 9-10 9z" fill="#B8D98D" />
-    <circle cx="25" cy="28" r="2.4" fill={INK} stroke="none" />
-    <circle cx="39" cy="28" r="2.4" fill={INK} stroke="none" />
-    <path d="M27 34c3 2 7 2 10 0" strokeWidth={2.4} />
-    <path d="M20 48c4 3 8 0 12 3s8 0 12 3" strokeWidth={2.6} stroke="currentColor" />
+    {/* Stink lines outside the cloud — the universal shorthand, and free silhouette. */}
+    <path d="M12 12c-3-3-2-7 1-9M32 8c-3-3-2-8 1-10M52 12c3-3 2-7-1-9" stroke={INK} strokeWidth={2.8} />
+    {/* Billows, not a rounded rectangle. */}
+    <path d="M17 47c-6 0-10-5-10-10 0-4 3-8 7-9 0-8 6-14 14-14 6 0 11 3 13 8 6-1 12 3 13 9 4 1 6 5 6 8 0 5-4 8-10 8z" fill="#9FCB6B" />
+    <circle cx="24" cy="30" r="3" fill={INK} stroke="none" />
+    <circle cx="40" cy="30" r="3" fill={INK} stroke="none" />
+    {/* A smug little smile beats a neutral curve. */}
+    <path d="M25 37c4 5 10 5 14 0" strokeWidth={2.8} />
+    <path d="M18 54c5 3 9 0 14 3s9 0 14 3" strokeWidth={2.6} stroke="currentColor" />
   </Frame>
 );
 
@@ -143,13 +153,15 @@ const Plunger = (): React.JSX.Element => (
 
 const MoonedMoon = (): React.JSX.Element => (
   <Frame>
-    <circle cx="32" cy="32" r="22" fill="#F5E6A8" />
-    <circle cx="21" cy="22" r="4" fill="#E0CE84" stroke="none" />
-    <circle cx="44" cy="20" r="3" fill="#E0CE84" stroke="none" />
-    <circle cx="46" cy="42" r="5" fill="#E0CE84" stroke="none" />
-    <path d="M22 34c0-6 4-10 10-10s10 4 10 10-4 12-10 12-10-6-10-12z" fill="#F0C9A4" />
-    <path d="M32 26v18" strokeWidth={2.6} />
-    <path d="M8 12l4 4M56 12l-4 4" strokeWidth={2.4} stroke="currentColor" />
+    {/* Stars outside the body: instant "space", and free silhouette. */}
+    <path d="M9 14v6M6 17h6M55 44v6M52 47h6" stroke={INK} strokeWidth={2.6} />
+    {/* A real crescent. The concave bite is what stops this being a coin. */}
+    <path d="M40 6c-14 0-25 11-25 25s11 25 25 25c4 0 8-1 11-3-11-3-19-12-19-22s8-19 19-22c-3-2-7-3-11-3z" fill="#F2E3A8" />
+    {/* Cheeks sitting in the crescent's mouth, mooning out of it. */}
+    <path d="M43 20c-3-3-8-3-11 0-4 4-4 12-2 17 2 5 6 8 11 8s9-3 11-8c2-5 2-13-2-17-3-3-8-3-11 0z" fill="#F0C9A4" />
+    <path d="M43 20v25" strokeWidth={3} />
+    <circle cx="24" cy="20" r="2.4" fill="#D9C77E" stroke="none" />
+    <circle cx="21" cy="38" r="3" fill="#D9C77E" stroke="none" />
   </Frame>
 );
 

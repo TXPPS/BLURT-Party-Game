@@ -61,27 +61,27 @@ const Possum = (): React.JSX.Element => (
 
 const ScreamingBanana = (): React.JSX.Element => (
   <Frame>
-    <path d="M18 8c-1 22 6 40 26 46-6 6-16 6-24 1C10 49 6 30 12 12z" fill="#F5D547" />
-    <path d="M18 8c2-2 6-2 7 1" strokeWidth={S} />
-    <circle cx="22" cy="26" r="2.6" fill={INK} stroke="none" />
-    <circle cx="32" cy="30" r="2.6" fill={INK} stroke="none" />
-    <ellipse cx="28" cy="42" rx="7" ry="9" fill={INK} stroke="none" transform="rotate(-18 28 42)" />
-    <path d="M44 42c3 2 6 2 8 0" stroke="currentColor" strokeWidth={4} />
+    {/* Peel flaps break the outline and say "banana" before any detail resolves. */}
+    <path d="M32 9 20 3l-3 12zM32 9l12-6 3 12z" fill="#E8C33D" />
+    <path d="M32 8c11 0 17 9 17 21 0 16-8 27-17 27s-17-11-17-27c0-12 6-21 17-21z" fill="#F5D547" />
+    <path d="M26 6h12l-2 5h-8z" fill="#7A6853" />
+    {/* Eyes squeezed shut, mouth wide: a scream is a big black hole, not a frown. */}
+    <path d="M20 26c3-4 8-4 11 0M33 26c3-4 8-4 11 0" strokeWidth={3} />
+    <ellipse cx="32" cy="42" rx="9" ry="12" fill={INK} stroke="none" />
+    <ellipse cx="32" cy="49" rx="4" ry="4.5" fill="#E4572E" stroke="none" />
   </Frame>
 );
 
 const Pickle = (): React.JSX.Element => (
   <Frame>
-    <path d="M22 8c9-3 18 3 20 13 3 15-3 30-13 35-9 4-17-2-18-12C9 30 12 12 22 8z" fill="#7CB342" />
-    <circle cx="22" cy="24" r="1.8" fill="#4E7A22" stroke="none" />
-    <circle cx="32" cy="34" r="1.8" fill="#4E7A22" stroke="none" />
-    <circle cx="20" cy="42" r="1.8" fill="#4E7A22" stroke="none" />
-    <circle cx="31" cy="17" r="1.8" fill="#4E7A22" stroke="none" />
-    <circle cx="25" cy="30" r="3" fill="#FFFBF2" />
-    <circle cx="36" cy="26" r="3" fill="#FFFBF2" />
-    <circle cx="25" cy="30" r="1.3" fill={INK} stroke="none" />
-    <circle cx="36" cy="26" r="1.3" fill={INK} stroke="none" />
-    <path d="M25 44c4 3 9 2 12-2" />
+    {/* Scalloped edge: the one thing that stops this being a green blob. */}
+    <path d="M25 6c5-2 10 1 12 5 4-1 7 2 7 6 1 4-2 6-1 10 1 4 4 6 3 10-1 5-5 6-6 10-1 5 1 9-3 12-4 4-10 3-14 0-4-2-4-7-6-11-2-4-6-6-6-11 0-4 3-7 3-11 0-5-2-9 1-13 2-4 6-5 10-7z" fill="#5E9E2E" />
+    <path d="M22 20a2.2 2.2 0 1 0 0 .1M31 32a2.2 2.2 0 1 0 0 .1M20 44a2.2 2.2 0 1 0 0 .1M34 14a2.2 2.2 0 1 0 0 .1M36 47a2.2 2.2 0 1 0 0 .1" fill="#38661A" stroke="none" />
+    <circle cx="25" cy="29" r="4.6" fill="#FFFBF2" />
+    <circle cx="38" cy="26" r="4.6" fill="#FFFBF2" />
+    <circle cx="25" cy="29" r="2.1" fill={INK} stroke="none" />
+    <circle cx="38" cy="26" r="2.1" fill={INK} stroke="none" />
+    <path d="M25 43c5 4 11 2 14-3" strokeWidth={2.8} />
   </Frame>
 );
 
@@ -98,29 +98,34 @@ const Skeleton = (): React.JSX.Element => (
 
 const Clown = (): React.JSX.Element => (
   <Frame>
-    <circle cx="32" cy="34" r="19" fill="#FFF0DC" />
-    <path d="M13 30c-6-2-8-8-4-12 5-4 11 2 11 6" fill="#E4572E" />
-    <path d="M51 30c6-2 8-8 4-12-5-4-11 2-11 6" fill="#E4572E" />
-    <path d="M20 16c4-6 20-6 24 0-4-3-20-3-24 0z" fill="#7D5BA6" />
-    <circle cx="24" cy="31" r="2.8" fill={INK} stroke="none" />
-    <circle cx="40" cy="31" r="2.8" fill={INK} stroke="none" />
-    <path d="M20 20c4-5 20-5 24 0" strokeWidth={2.6} />
-    <circle cx="32" cy="38" r="5" fill="#E4572E" />
-    <path d="M22 44c5 6 15 6 20 0" stroke="currentColor" strokeWidth={3.6} />
+    {/* Huge hair well outside the head: this is the silhouette doing all the work. */}
+    <circle cx="11" cy="28" r="11" fill="#E4572E" />
+    <circle cx="53" cy="28" r="11" fill="#E4572E" />
+    <circle cx="32" cy="34" r="18" fill="#FFF4E4" />
+    <path d="M14 20c5-9 31-9 36 0-5-5-31-5-36 0z" fill="#7D5BA6" />
+    {/* Painted eye triangles read where two dots would not. */}
+    <path d="M24 24l5 9-9 0zM40 24l-5 9 9 0z" fill={INK} stroke="none" />
+    <circle cx="32" cy="38" r="7" fill="#E4572E" />
+    <path d="M19 43c6 10 20 10 26 0" strokeWidth={4} stroke={INK} />
   </Frame>
 );
 
 const Grandma = (): React.JSX.Element => (
   <Frame>
-    <circle cx="32" cy="16" r="8" fill="#C9C3D6" />
-    <path d="M12 36c0-11 9-18 20-18s20 7 20 18c0 10-9 17-20 17s-20-7-20-17z" fill="#FFE0C2" />
-    <circle cx="24" cy="34" r="6" fill="none" strokeWidth={2.6} />
-    <circle cx="41" cy="34" r="6" fill="none" strokeWidth={2.6} />
-    <path d="M30 34h5" strokeWidth={2.4} />
-    <path d="M12 32c2-8 8-12 20-12s18 4 20 12c-3-2-9-4-20-4s-17 2-20 4z" fill="#C9C3D6" />
-    <path d="M26 44c4 3 8 3 12 0" />
-    <circle cx="18" cy="42" r="3" fill="currentColor" stroke="none" opacity="0.6" />
-    <circle cx="46" cy="42" r="3" fill="currentColor" stroke="none" opacity="0.6" />
+    {/* The bun is the silhouette. It has to sit proud of the head to survive 40px. */}
+    <circle cx="32" cy="10" r="10" fill="#CFC7DB" />
+    <path d="M27 6c3-3 7-3 10 0" stroke="#9E93B5" strokeWidth={2.2} />
+    <path d="M13 37c0-11 8-19 19-19s19 8 19 19c0 10-8 17-19 17s-19-7-19-17z" fill="#FFE0C2" />
+    <path d="M13 33c1-9 8-14 19-14s18 5 19 14c-4-4-11-6-19-6s-15 2-19 6z" fill="#CFC7DB" />
+    {/* Thick spectacle rings: a hairline circle disappears when it is three pixels. */}
+    <circle cx="23" cy="36" r="7.5" fill="#FFFBF2" strokeWidth={3.4} />
+    <circle cx="42" cy="36" r="7.5" fill="#FFFBF2" strokeWidth={3.4} />
+    <circle cx="23" cy="36" r="2.4" fill={INK} stroke="none" />
+    <circle cx="42" cy="36" r="2.4" fill={INK} stroke="none" />
+    <path d="M30.5 36h4" strokeWidth={3} />
+    <path d="M26 48c4 3 8 3 12 0" strokeWidth={2.8} />
+    <circle cx="16" cy="44" r="3.4" fill="#E9788E" stroke="none" opacity="0.8" />
+    <circle cx="49" cy="44" r="3.4" fill="#E9788E" stroke="none" opacity="0.8" />
   </Frame>
 );
 
@@ -138,14 +143,18 @@ const Alien = (): React.JSX.Element => (
 
 const SmokingFish = (): React.JSX.Element => (
   <Frame>
-    <path d="M8 32c8-11 22-14 32-10 6 2 10 6 12 10-2 4-6 8-12 10-10 4-24 1-32-10z" fill="#4FA3D1" />
-    <path d="M52 32c4-4 8-6 8-6v12s-4-2-8-6z" fill="#2E7BA6" />
-    <circle cx="20" cy="28" r="3.6" fill="#FFFBF2" />
-    <circle cx="20" cy="28" r="1.7" fill={INK} stroke="none" />
-    <path d="M16 38h10" strokeWidth={2.6} />
-    <path d="M26 38h12" stroke="#FFFBF2" strokeWidth={4} />
-    <path d="M38 38h4" stroke="#E4572E" strokeWidth={4.4} />
-    <path d="M44 34c2-3 0-5 2-7" stroke="currentColor" strokeWidth={2.4} />
+    <path d="M6 34c8-12 21-15 30-11 6 2 10 6 12 11-2 5-6 9-12 11-9 4-22 1-30-11z" fill="#3E93C4" />
+    <path d="M48 34c4-4 9-7 9-7v14s-5-3-9-7z" fill="#26688F" />
+    <path d="M22 22c4-3 9-3 12 0" stroke="#26688F" strokeWidth={2.4} />
+    <circle cx="19" cy="30" r="4.4" fill="#FFFBF2" />
+    <circle cx="19" cy="30" r="2" fill={INK} stroke="none" />
+    <path d="M13 40c5 3 10 3 14 0" strokeWidth={2.6} />
+    {/* Cigarette: long, white, with a lit end. Small enough to be a detail before. */}
+    <path d="M27 42h16" stroke="#FFFBF2" strokeWidth={6} />
+    <path d="M43 42h5" stroke="#E4572E" strokeWidth={6} />
+    <path d="M27 42h4" stroke="#D9A441" strokeWidth={6} />
+    {/* Smoke leaves the icon's box, which is exactly why it reads. */}
+    <path d="M50 38c3-4 0-7 3-10 2-3 0-5 1-7" stroke={INK} strokeWidth={2.6} />
   </Frame>
 );
 
