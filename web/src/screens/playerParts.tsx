@@ -254,9 +254,6 @@ export function DrawingHold({
   view: Extract<StateMessage['view'], { phase: 'DRAWING_ACTIVE' }>;
   timer: React.ReactNode;
 }): React.JSX.Element {
-  const { submittedCount, artistTotal, pendingArtistNames } = view;
-  const done = artistTotal > 0 && submittedCount >= artistTotal;
-
   return (
     <div className="stack center">
       <div className="row row--between">
@@ -264,6 +261,33 @@ export function DrawingHold({
         {timer}
       </div>
 
+      <SubmissionTally view={view} />
+
+      <p className="lead center">
+        You will be asked to guess what each one was meant to be. Prepare to be wrong.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * "3 of 6 handed in", plus who is still going.
+ *
+ * Shown to anybody waiting on the drawing phase to end. Since everybody in the room
+ * draws, that is now mostly artists who have already submitted and are watching their
+ * own locked canvas — without this they get a dead screen and no idea how long the
+ * wait is. Driven by the broadcast, so it moves on its own.
+ */
+export function SubmissionTally({
+  view,
+}: {
+  view: Extract<StateMessage['view'], { phase: 'DRAWING_ACTIVE' }>;
+}): React.JSX.Element {
+  const { submittedCount, artistTotal, pendingArtistNames } = view;
+  const done = artistTotal > 0 && submittedCount >= artistTotal;
+
+  return (
+    <>
       <Card sunken>
         <p className="tally" aria-live="polite">
           <span className="tally__value">{submittedCount}</span>
@@ -277,10 +301,6 @@ export function DrawingHold({
       {!done && pendingArtistNames.length > 0 && (
         <p className="center faint">{listNames(pendingArtistNames, 'still scribbling')}</p>
       )}
-
-      <p className="lead center">
-        You will be asked to guess what each one was meant to be. Prepare to be wrong.
-      </p>
-    </div>
+    </>
   );
 }

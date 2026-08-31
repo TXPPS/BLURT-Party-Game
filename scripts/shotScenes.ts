@@ -160,10 +160,16 @@ export const SCENES: Scene[] = [
     shootIndex: 'artist',
   },
   {
-    // The holding screen a non-artist sees while everybody draws at once. Six players
-    // so the room is guaranteed some non-artists (the finale runs three from six up),
-    // and one canvas is scribbled but not submitted so the counter shows partial
-    // progress rather than 0 or a full house.
+    // The waiting state during the shared drawing window.
+    //
+    // Everybody draws now, so the person waiting is almost always an artist who has
+    // already submitted and is sitting on a locked canvas — that is the screen worth
+    // photographing, hence `shootIndex: 'artist'`. ('waiter' still exists in the
+    // driver for the case that does produce a non-artist: somebody who was departed
+    // when the finale was planned and has since reconnected.)
+    //
+    // Six players, one submission, so the tally reads a partial "1 of 6" rather than
+    // zero or a full house.
     name: '11b-drawing-hold',
     players: 6,
     shoot: 'both',
@@ -189,7 +195,7 @@ export const SCENES: Scene[] = [
       }
       await sleep(400);
     },
-    shootIndex: 'waiter',
+    shootIndex: 'artist',
   },
   {
     // Closes the loop the brief asks for: create → play → results → PLAY AGAIN →

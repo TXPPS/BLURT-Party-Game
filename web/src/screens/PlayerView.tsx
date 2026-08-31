@@ -11,7 +11,15 @@ import type { PrivateMessage, StateMessage } from '@shared/protocol.js';
 import { ActionButton, Card, DrawingFrame, PhaseTitle, TimerRing, Waiting } from '../components/kit.js';
 import { Scoreboard } from '../components/Scoreboard.js';
 import { useCountdown } from '../net/useRoom.js';
-import { AnswerForm, DrawingHold, GuessForm, SpectatorBeat, listNames, useTimerSounds } from './playerParts.js';
+import {
+  AnswerForm,
+  DrawingHold,
+  GuessForm,
+  SpectatorBeat,
+  SubmissionTally,
+  listNames,
+  useTimerSounds,
+} from './playerParts.js';
 
 const DrawingCanvas = lazy(() =>
   import('../components/Canvas.js').then((m) => ({ default: m.DrawingCanvas })),
@@ -193,15 +201,20 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
         return <DrawingHold view={view} timer={timer} />;
       }
       return (
-        <Suspense fallback={<Waiting message="Loading the canvas" />}>
-          <DrawingCanvas
-            subject={brief.subject}
-            context={brief.context}
-            submitted={brief.submitted}
-            timer={timer}
-            onSubmit={(dataUrl) => props.onDrawing(brief.roundId, dataUrl)}
-          />
-        </Suspense>
+        <div className="stack">
+          <Suspense fallback={<Waiting message="Loading the canvas" />}>
+            <DrawingCanvas
+              subject={brief.subject}
+              context={brief.context}
+              submitted={brief.submitted}
+              timer={timer}
+              onSubmit={(dataUrl) => props.onDrawing(brief.roundId, dataUrl)}
+            />
+          </Suspense>
+          {/* Everybody draws, so a finished artist is the person most likely to be
+              sitting on a locked canvas wondering how long the rest will take. */}
+          {brief.submitted && <SubmissionTally view={view} />}
+        </div>
       );
     }
 
