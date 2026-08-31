@@ -29,6 +29,7 @@ findings are **fixed**, not merely recorded.
 | 14 | Deploy + playtest instrumentation | DevOps / Deployment Engineer | ⛔ blocked (deploy) · ✅ complete (instrumentation) | Executive Producer | BLOCKED — Cloudflare unreachable from this environment; pacing log and latency harness shipped and verified locally |
 | 15 | Simultaneous drawing finale | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — worst case 21.3m → 13.2m at NORMAL; matrix 16/16, faults 22/22 |
 | 16 | Everyone draws; showcase decoupled | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — 3 artists → all 10; match length unchanged (+3s worst); finale share 26.0–34.7% |
+| 17 | Prompts from the whole story | Content System Designer | ✅ complete | QA Engineer | PASS — generic prompts 7/10 → 0/10 at a full table; match length unmoved |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -991,6 +992,77 @@ who lose their prompt.
 
 ---
 
+## PHASE 17 — DRAWING PROMPTS FROM THE WHOLE STORY
+
+**Driving role:** Content System Designer · **Auditor:** QA Engineer
+
+Phase 16 let everybody draw, and immediately exposed the next coupling: derivation
+walked `plan`, whose length *is* the round count. A three-round match produced three
+story prompts however long the story was, so a full table drew seven generic prompts
+that had nothing to do with the story they had just watched — which defeats the point
+of deriving them.
+
+Unplayed slots were never blank. `renderSegments` fills them from each slot's own pool
+and the room reads them in FINAL_STORY. Deriving the same value makes every slot in the
+finished story drawable.
+
+| Players | Rounds | Story prompts before | After | Generic before | After |
+|---|---|---:|---:|---:|---:|
+| 4 | 3 / 5 / 8 | 3 / 4 / 4 | **4 / 4 / 4** | 1 / 0 / 0 | **0** |
+| 10 | 3 / 5 / 8 | 3 / 5 / 8 | **10 / 10 / 10** | 7 / 5 / 2 | **0** |
+
+At ten players, five of the ten come from non-visual slots — the documented
+"unillustratable prompt is funnier than a finale that cannot start" fallthrough, now
+load-bearing at full tables rather than an edge case.
+
+### Three premises in the request that the code did not match
+
+Stated plainly because two of them changed what the work was:
+
+1. **There is no `drawPromptTemplate` field.** Nothing in the schema or anywhere in the
+   repo. A prompt is the filled slot text plus the clause it landed in, assembled by
+   `clauseAround`. So Task 2's "fix any drawPromptTemplate that only parses with a
+   player-style answer" had nothing to fix — and **no template was rewritten**.
+2. **The schema field is `fallback`** (singular, an array on each slot), not
+   `fallbacks`.
+3. **No "slots a player did NOT win" preference existed** to keep "unchanged".
+   `DerivedDrawingPrompt` carried no author at all and assignment was purely
+   positional. Read as *don't hand an artist their own answer*, it is a real
+   improvement, so it was added — as new behaviour, not preserved behaviour.
+
+### The seam, checked by reading it
+
+Every visual slot in all seven stories was rendered with its authored fallback and read
+by eye. All of them parse: the fallbacks were written for those exact slots and already
+appear in FINAL_STORY, so the clause reads the same whether a player or the house
+supplied the value. Nothing needed rewriting.
+
+One cosmetic nit, pre-existing and not touched: `the_routine_checkup` produces nested
+quotes — `written: "Define "regularly""` — because the story line quotes the slot and
+that fallback contains quotes. It parses, and it shows up in the final story too.
+
+### An assertion that was passing vacuously
+
+The "no unfilled `{token}`" check went green against all seven stories — and stayed
+green when `clauseAround`'s placeholder scrub was deliberately removed. **None of the
+103 story lines contains more than one placeholder**, so the scrub never fires against
+real content and the assertion proved nothing.
+
+A synthetic two-slot fixture now exercises it, and breaking the scrub fails that test.
+This is the guard for the day somebody writes a line with two slots in it.
+
+### Verification
+
+Match length was the thing most likely to move by accident, since this changes prompt
+*sourcing* and nothing else. Largest movement across 4 and 10 players at all three
+presets: **5s**, which is run-to-run noise. Showcase count unchanged at three.
+
+`FINALE_MULTIPLIER` was confirmed rather than assumed: the balance suite still passes
+at 0.94 without retuning. Nothing about who earns changed — only which words are on
+the prompt.
+
+---
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -1126,7 +1198,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
-| ✅ | All unit + integration tests pass, including the finale balance test | **223 passing**; finale lands 26.0–34.7% across 2–10 players |
+| ✅ | All unit + integration tests pass, including the finale balance test | **267 passing**; finale lands 26.0–34.7% across 2–10 players |
 | ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
 | ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
 | ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |

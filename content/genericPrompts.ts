@@ -1,15 +1,18 @@
 /**
  * BLURT — fallback drawing prompts.
  *
- * Drawing prompts normally come out of the story the room just built, which is the
- * whole joke: you are drawing something one of *you* wrote. But those come from slots
- * that were actually *played*, so a three-round match yields three of them — and every
- * player now draws. A ten-person, three-round game needs seven more.
+ * Drawing prompts come out of the story the room just built, which is the whole joke:
+ * you are drawing something one of *you* wrote. Derivation walks the entire finished
+ * story rather than only the slots a round was spent on, so with the current content
+ * this pool never fires — every MVP story has ten slots and ten is the player cap.
  *
- * The alternative was to cut the artist count back to the prompt supply, which is
- * exactly the coupling this change exists to remove. So the shortfall is filled with
- * these instead, and the room is told nothing: an artist cannot tell whether their
- * prompt came from the story or from here, because the guessers never see either.
+ * It is still not dead code. The schema requires only eight slots per story
+ * (`MIN_SLOTS_PER_STORY`), so a schema-valid future story could leave a full table one
+ * or two prompts short, and the alternative — cutting the artist count back to the
+ * prompt supply — is exactly the coupling the finale was rebuilt to remove.
+ *
+ * The room is told nothing either way: an artist cannot tell whether their prompt came
+ * from the story or from here, because the guessers never see the provenance.
  *
  * Written to be drawable, guessable and mode-neutral. They appear in crude matches
  * too, so nothing here relies on being rude — the crude mode's edge comes from the

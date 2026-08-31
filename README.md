@@ -60,8 +60,9 @@ Requires **Node ≥ 20**. `pnpm` is the package manager of record; `npm` works t
    it is the punchline, and putting it on the setup screen would give the whole game
    away.
 4. **The final story.** The whole thing, read out line by line.
-5. **The drawing finale.** Prompts are pulled out of the story the room just built,
-   so somebody is usually drawing something one of *them* wrote. **Everybody** draws,
+5. **The drawing finale.** Prompts are pulled out of the whole story the room just
+   built — every slot in it, not only the ones a round was spent on — so people are
+   drawing each other's words rather than house filler. **Everybody** draws,
    at the same time, in one window. Three pictures are then shown in turn — everyone
    else writes a fake prompt and the room votes on which was real — and the artists
    there was no time for are paid the median of what the shown artists earned. Every
@@ -312,7 +313,7 @@ submitting at once produce one broadcast, not ten.
 
 Three layers, and the interesting one is the middle.
 
-**Unit tests** (`pnpm test`) — 223 specs over the pure modules: room-code generation
+**Unit tests** (`pnpm test`) — 267 specs over the pure modules: room-code generation
 and uniqueness, name generation and the adversarial blocklist filter, matchmaking
 fairness over 100-round runs at every player count, scoring maths, tie handling, story
 assembly and progressive unlock, content schema validation, the two disguise lints,

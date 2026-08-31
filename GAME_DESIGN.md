@@ -281,11 +281,22 @@ object, place, possession) first, falling through to anything filled if a short 
 did not produce enough. An unillustratable prompt is funnier than a finale that
 cannot start.
 
-There are only ever as many story-derived prompts as there were rounds — a three-round
-match yields three — and every player now draws, so a big short match runs out. The
-shortfall is filled from `content/genericPrompts.ts` rather than cutting the artist
-count back to the prompt supply. Nobody can tell which they got: the guessers never see
-the prompt's provenance, only the drawing.
+Prompts are derived from the **whole finished story**, not just the slots a round was
+spent on. A three-round match plays three slots, but the story still has ten and the
+room reads all ten in the final story — the unplayed ones filled from each slot's own
+pool. All ten are drawable, so a ten-player finale is about *this* story rather than
+falling back to filler for most of the room.
+
+Within that, the order is **visual first, then a player's own words ahead of authored
+filler** — somebody's real answer is funnier to draw than a line the house wrote — and
+**nobody is given their own answer to draw**. Drawing a phrase you wrote yourself is
+the one assignment with no surprise in it: you already know what it should look like,
+and the guessers are competing against your own mental image.
+
+`content/genericPrompts.ts` is the safety net beneath all that, and with the current
+content it never fires: every MVP story has ten slots and ten is the player cap. It is
+not dead code, though — the schema only requires eight slots per story, so a
+schema-valid future story could leave a full table one or two prompts short.
 
 The finale splits into a **drawing half** and a **showcase half**, and they are paced
 differently on purpose.
