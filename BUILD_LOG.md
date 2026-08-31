@@ -26,6 +26,7 @@ findings are **fixed**, not merely recorded.
 | 11 | Adversarial review | All roles | ✅ complete | Final Integration Reviewer | PASS — every finding fixed or in KNOWN LIMITATIONS |
 | 12 | Docs, git, deploy readiness | DevOps / Deployment Engineer | ✅ complete | Final Integration Reviewer | PASS — `wrangler deploy --dry-run` clean, four docs written, history intact |
 | 13 | Architecture conformance sweep | Technical Director | ✅ complete | Final Integration Reviewer | PASS — 8 oversized files → 4, one argued exception; 216 unit tests |
+| 14 | Deploy + playtest instrumentation | DevOps / Deployment Engineer | ⛔ blocked (deploy) · ✅ complete (instrumentation) | Executive Producer | BLOCKED — Cloudflare unreachable from this environment; pacing log and latency harness shipped and verified locally |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -740,6 +741,84 @@ screenshot harness still drives a real room and still asserts on the live DOM.
 
 ---
 
+## PHASE 14 — DEPLOY AND PLAYTEST INSTRUMENTATION
+
+**Driving role:** DevOps / Deployment Engineer · **Auditor:** Executive Producer
+
+### Deploy: blocked, and not by the code
+
+`wrangler deploy` cannot run from this environment. Two independent blockers:
+
+| Blocker | Evidence |
+|---|---|
+| No credentials | `wrangler whoami` → "You are not authenticated." `wrangler login` needs an interactive browser. |
+| Egress policy | `api.cloudflare.com`, `dash.cloudflare.com`, `workers.dev` and `sparrow.cloudflare.com` all answer **403 to CONNECT** through the session proxy. |
+
+The proxy's own README is explicit that a 403 is an organisation egress denial and must
+be reported rather than routed around, so no workaround was attempted. `--temporary`
+(a preview account, no login) was tried and fails at the same network layer.
+
+The Cloudflare MCP server *can* reach the account — `workers_list` returns 8 existing
+Workers, and `blurt` is not among them, confirming it has never been deployed — but
+that server exposes only read tools for Workers plus create tools for D1/KV/R2. There
+is no Worker upload path. So this is a genuine environment limitation, not a missing
+step.
+
+What that leaves unverified is narrow and worth stating precisely: the deploy itself,
+the `v1` migration applying against real Cloudflare, and real-edge WebSocket upgrade
+and latency. The *topology* those depend on is already proven locally, because
+`wrangler dev` runs the production arrangement — one Worker serving the built client
+from `[assets]` with `run_worker_first` keeping `/ws` and `/api/*` off the SPA
+fallback. Every automated run in this build, including the 22 fault cases, connects
+through exactly that path.
+
+### Instrumentation: shipped
+
+`server/src/pacingLog.ts` — one line per phase entry and exit. Console only; the only
+memory is a single timestamp on the DO instance, so nothing was added to persisted
+state to serve a diagnostic. Hibernation loses it and the line then says `after=?`
+rather than printing a number it cannot stand behind.
+
+Exit reasons are **threaded from the call site**, not inferred. That cost a parameter
+on `runTransitions` and on `HandlerContext.advancePhase`, and it is the right trade: an
+exit reason guessed from room state would read exactly as authoritative as a real one.
+The first pass tagged every `handlerContext.goTo` as `reset`, which labelled *starting
+a match* a reset; reading the log's own output caught it, and start/play-again/
+return-to-lobby are now `host`.
+
+Content safety is a property, not a promise: `tests/pacingLog.test.ts` stuffs a room
+with names, ids, tokens and answer text and asserts none of it appears in any line.
+
+`scripts/timings.ts` — `pnpm simulate --timings` reports per-phase round-trip time and
+real phase duration. RTT reuses the existing `ping`/`pong` pair, so there is no new
+protocol surface, and the harness already turns `https` into `wss`, so it runs against
+a deployed URL unchanged.
+
+**A defect in the first version of that table, found by reading its output:** durations
+were keyed by first sighting of each phase, so anything that repeats across rounds
+silently reported the gap from round 1 to round 3. It now records every occurrence and
+reports n / mean / longest / total. The corrected client-side table agrees with the
+server's own pacing log to the tenth of a second — two independent measurements of the
+same match.
+
+### What the measurements say
+
+4 players, 3 rounds, Classic, finale on, NORMAL timing, against local `wrangler dev`:
+**33.8s wall, 3ms median RTT** — but that number is a floor, not a forecast. Bots
+answer instantly, so the match is almost entirely fixed beats; only 30s of it cannot be
+shortened by faster players.
+
+The number worth acting on is the other end. If every phase ran to its buzzer the match
+is **21.2 minutes**, and `DRAWING_ACTIVE` alone is **9.4 of them** — three artists at
+187.5s each, sequentially. It ends early when an artist submits, so it will usually be
+far shorter, but a single slow artist parks everyone else on a progress bar. That is
+now the first thing PLAYTEST.md tells the host to watch, with the lever named
+(`DRAWING_TIME_MULTIPLIER`, currently 2.5× the answer timer) — flagged, deliberately
+not changed, because it is a tuned design constant and this task was "deploy, verify,
+instrument", not retune.
+
+---
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -875,7 +954,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
-| ✅ | All unit + integration tests pass, including the finale balance test | **216 passing**; finale lands 29.3–33.3% across 3–10 players |
+| ✅ | All unit + integration tests pass, including the finale balance test | **223 passing**; finale lands 29.3–33.3% across 3–10 players |
 | ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
 | ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
 | ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |
@@ -884,7 +963,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | No TODO/FIXME/placeholder in any gameplay code path | `grep` clean |
 | ✅ | No dead code, no unused deps, no `any` in shared or server code | 20 unused exports removed; eslint bans `any` in `shared`/`server`/`content` |
 | ✅ | Bundle size recorded and within budget | **90.6 KB gzipped** initial, against 250 KB |
-| ✅ | All four docs written and accurate | README · GAME_DESIGN · CONTENT_GUIDE · BUILD_LOG |
+| ✅ | All four docs written and accurate | README · GAME_DESIGN · CONTENT_GUIDE · BUILD_LOG, plus PLAYTEST |
 | ✅ | Git tree clean, history intact, meaningful commits | Conventional commits, one per phase gate plus audit fixes |
 | ✅ | Adversarial review complete with findings fixed or documented | Phase 11; everything unfixed is in README → KNOWN LIMITATIONS |
 | ✅ | Architecture constraints hold: `/shared` pure, ~350-line ceiling, zero magic numbers | Phase 13. Purity re-verified; 8 oversized files → 4, with `RoomDO` an argued exception stated in README; two duplicated constants fixed |

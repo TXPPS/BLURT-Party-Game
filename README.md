@@ -27,6 +27,7 @@ No accounts. No install. No database. Share four letters and play.
 - [Performance](#performance)
 - [Accessibility](#accessibility)
 - [Security](#security)
+- [Observability](#observability)
 - [Known limitations](#known-limitations)
 - [Future](#future)
 
@@ -216,7 +217,43 @@ single-page-application fallback, which would otherwise answer a WebSocket upgra
 with `index.html`.
 
 You will need a Cloudflare account with Workers enabled. The Durable Object migration
-in `wrangler.toml` uses `new_sqlite_classes`, which is available on the free plan.
+in `wrangler.toml` uses `new_sqlite_classes`, which is available on the free plan. The
+first deploy applies migration tag `v1` and creates the `RoomDO` class; wrangler prints
+the migration and the resulting `*.workers.dev` URL.
+
+**Not yet deployed.** See [PLAYTEST.md](PLAYTEST.md) for the deploy and verification
+steps, and for the session kit — how to run a playtest and what to watch.
+
+---
+
+## Observability
+
+The server writes one line per phase entry and exit, to `console` and nowhere else.
+No storage, no state field, and no player content — counts and phase names only, so
+it is safe to leave on and safe to paste into a bug report.
+
+```bash
+npx wrangler tail --config server/wrangler.toml --format pretty --search '[blurt]'
+```
+
+```
+[blurt] PARK enter ROUND_PROMPT round=2/3 eligible=4 connected=4 seated=4 budget=75.0s
+[blurt] PARK exit  ROUND_PROMPT reason=all-submitted after=18.3s round=2/3 eligible=4 …
+```
+
+Every exit names why the phase ended — `all-submitted`, `timeout`, `host`, `presence`,
+`auto` or `reset` — threaded from the call site rather than inferred, because a guessed
+exit reason reads exactly as authoritative as a real one. Grepping `reason=timeout` is
+the fastest way to find the phases where real people did not do the thing the screen
+asked for.
+
+The three counts differ deliberately: `eligible` can act now, `connected` has a socket
+attached (including somebody still on the name screen), `seated` holds a seat and a
+score (including somebody who has gone). `connected` below `seated` means a player is
+away, not that anything broke.
+
+For latency and pacing from the client side, `pnpm simulate --timings` reports
+round-trip time and real duration per phase, and runs against a deployed URL unchanged.
 
 ---
 
@@ -267,7 +304,7 @@ submitting at once produce one broadcast, not ten.
 
 Three layers, and the interesting one is the middle.
 
-**Unit tests** (`pnpm test`) — 216 specs over the pure modules: room-code generation
+**Unit tests** (`pnpm test`) — 223 specs over the pure modules: room-code generation
 and uniqueness, name generation and the adversarial blocklist filter, matchmaking
 fairness over 100-round runs at every player count, scoring maths, tie handling, story
 assembly and progressive unlock, content schema validation, the two disguise lints,
