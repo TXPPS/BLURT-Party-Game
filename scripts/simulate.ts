@@ -4,6 +4,8 @@
  *   pnpm simulate --players 6 --rounds 5 --mode classic --drawing on
  *   pnpm simulate --matrix          # the full player-count / mode / finale matrix
  *   pnpm simulate --faults          # every fault-injection case
+ *   pnpm simulate --timings         # per-phase round-trip latency and pacing
+ *   pnpm simulate --url https://…   # run against a deployed Worker
  *
  * Requires `pnpm dev:server` to be running (or pass --url).
  */
@@ -13,6 +15,7 @@ import { MAX_PLAYERS } from '../shared/constants.js';
 import type { GameMode, TimerSpeed } from '../shared/types.js';
 import { Bot, type BotBehaviour } from './botHarness.js';
 import { checkInvariants, type InvariantFailure } from './invariants.js';
+import { collectTimings, formatTimings, type PhaseTiming } from './timings.js';
 import { FAULT_CASES, type FaultCase } from './faults.js';
 
 interface Options {
@@ -25,6 +28,8 @@ interface Options {
   matrix: boolean;
   faults: boolean;
   quiet: boolean;
+  /** Sample round-trip time per phase and print the timing table. */
+  timings: boolean;
   /** Substring filter, so a single fault case can be re-run after a fix. */
   only: string | null;
 }
@@ -48,6 +53,7 @@ function parseArgs(argv: readonly string[]): Options {
     matrix: has('matrix'),
     faults: has('faults'),
     quiet: has('quiet'),
+    timings: has('timings'),
     only: argv.includes('--only') ? get('only', '') : null,
   };
 }
@@ -72,6 +78,8 @@ export interface RunConfig {
   /** Extra assertions for a fault case. */
   expect?: (bots: readonly Bot[]) => InvariantFailure[];
   timeoutMs?: number;
+  /** Sample round-trip time per phase. Adds one ping per phase change per bot. */
+  measureLatency?: boolean;
 }
 
 export interface RunResult {
@@ -81,6 +89,8 @@ export interface RunResult {
   failures: InvariantFailure[];
   code: string;
   finalPhase: string;
+  /** Present only when the run was asked to measure latency. */
+  timings?: PhaseTiming[];
 }
 
 async function createRoom(url: string): Promise<string> {
@@ -104,6 +114,7 @@ export async function runMatch(url: string, config: RunConfig): Promise<RunResul
       avatarId: AVATARS[index % AVATARS.length] ?? 'raccoon',
       isCreator: index === 0,
       behaviour: config.behaviours?.[index] ?? {},
+      ...(config.measureLatency === true ? { measureLatency: true } : {}),
     });
     bots.push(bot);
     await bot.connect();
@@ -140,6 +151,9 @@ export async function runMatch(url: string, config: RunConfig): Promise<RunResul
     : [{ name: 'match completed', detail: `timed out after ${timeoutMs}ms` }];
   if (config.expect !== undefined) failures.push(...config.expect(bots));
 
+  // Read the samples off the bots before they are disconnected.
+  const timings = config.measureLatency === true ? collectTimings(bots, Date.now()) : null;
+
   for (const bot of bots) bot.disconnect();
   await sleep(120);
 
@@ -150,6 +164,7 @@ export async function runMatch(url: string, config: RunConfig): Promise<RunResul
     failures,
     code,
     finalPhase: bots.find((b) => b.finished)?.state?.phase ?? host.state?.phase ?? 'UNKNOWN',
+    ...(timings === null ? {} : { timings }),
   };
 }
 
@@ -253,6 +268,7 @@ async function main(): Promise<void> {
         drawing: options.drawing,
         timer: options.timer,
         label: `${options.players}p ${options.mode} ${options.drawing ? 'finale' : 'no-finale'} ${options.rounds}r`,
+        ...(options.timings ? { measureLatency: true } : {}),
       },
     ];
   }
@@ -272,6 +288,12 @@ async function main(): Promise<void> {
     const result = await runMatch(options.url, config);
     if (!options.quiet) process.stdout.write(`${result.ok ? '✓' : '✗'} ${Math.round(result.durationMs / 1000)}s\n`);
     results.push(result);
+  }
+
+  for (const result of results) {
+    if (result.timings !== undefined) {
+      process.stdout.write(formatTimings(result.timings, result.durationMs, options.url));
+    }
   }
 
   process.exit(report(results) === 0 ? 0 : 1);

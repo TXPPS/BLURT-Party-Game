@@ -21,6 +21,7 @@ import type { ClientMessage, ErrorCode } from '../../shared/protocol.js';
 import { disambiguateName, sanitizeText } from '../../shared/sanitize.js';
 import type { GameSettings, Phase } from '../../shared/types.js';
 import { currentDrawingRecord, recordDrawingVote, recordGuess } from './finale.js';
+import type { PhaseExitReason } from './pacingLog.js';
 import { hasSubmitted, recordVote, resetForNewMatch, startMatch, submitAnswer } from './match.js';
 import { assignHost, findPlayer, isEligible, startBlock } from './roomState.js';
 import { slotFor } from './story.js';
@@ -33,7 +34,14 @@ export interface HandlerContext {
   effects: PhaseEffects;
   goTo(phase: Phase): void;
   /** Run the current phase's advance path — the same one its deadline would take. */
-  advancePhase(): void;
+  /**
+   * Re-ask the current phase whether it is finished, and transition if so.
+   *
+   * The reason is only ever used by the pacing log, but it is a parameter rather than
+   * an inference because the two callers mean genuinely different things: a landed
+   * submission, and the host deciding to move on.
+   */
+  advancePhase(reason?: PhaseExitReason): void;
   /** Send a non-fatal error to this socket only. */
   fail(code: ErrorCode, message?: string): void;
   /** Persist a drawing outside the JSON state. */
@@ -67,7 +75,7 @@ export function handleMessage(ctx: HandlerContext, message: ClientMessage): void
     case 'submit_drawing_vote':
       return drawingVote(ctx, message.roundId, message.optionId);
     case 'advance':
-      return ctx.advancePhase();
+      return ctx.advancePhase('host');
     case 'play_again':
       return playAgain(ctx);
     case 'return_to_lobby':

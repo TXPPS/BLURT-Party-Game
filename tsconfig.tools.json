@@ -16,6 +16,7 @@
     // those here would resolve `WebSocket`/`Response` to the DOM versions instead.
     "server/src/ids.ts",
     "server/src/match.ts",
+    "server/src/pacingLog.ts",
     "server/src/roomState.ts",
     "server/src/roomUpkeep.ts",
     "server/src/story.ts",

@@ -55,6 +55,12 @@ export interface BotOptions {
   avatarId: string;
   isCreator: boolean;
   behaviour: BotBehaviour;
+  /**
+   * Sample WebSocket round-trip time, tagged with the phase it was measured in.
+   * Off by default: it adds a ping per phase plus a slow heartbeat, which is noise
+   * in a correctness run and the entire point in a latency run.
+   */
+  measureLatency?: boolean;
 }
 
 export class Bot {
@@ -66,6 +72,14 @@ export class Bot {
   readonly received: ServerMessage[] = [];
   readonly phases: Phase[] = [];
   readonly errors: { code: string; message: string }[] = [];
+  /** Round-trip samples, tagged with the phase each was taken in. */
+  readonly rtt: { phase: Phase; ms: number }[] = [];
+  /**
+   * Every phase change with the moment it was seen. A sequence rather than a map,
+   * because phases repeat: a 3-round match enters ROUND_PROMPT three times, and
+   * keying by phase would silently measure the gap between the first and the last.
+   */
+  readonly phaseLog: { phase: Phase; at: number }[] = [];
   finished = false;
   closed = false;
 
@@ -115,13 +129,22 @@ export class Bot {
       case 'error':
         this.errors.push({ code: message.code, message: message.message });
         break;
+      case 'pong': {
+        const phase = this.state?.phase;
+        if (phase !== undefined) this.rtt.push({ phase, ms: Date.now() - message.sentAt });
+        break;
+      }
       case 'private':
         this.privateMsg = message;
         break;
       case 'state': {
         const previous = this.state?.phase;
         this.state = message;
-        if (previous !== message.phase) this.phases.push(message.phase);
+        if (previous !== message.phase) {
+          this.phases.push(message.phase);
+          this.phaseLog.push({ phase: message.phase, at: Date.now() });
+          if (this.options.measureLatency === true) this.send({ t: 'ping', sentAt: Date.now() });
+        }
         if (message.phase === 'FINAL_RESULTS') this.finished = true;
         // A fresh phase clears the per-phase private payload so a stale prompt
         // cannot be answered into the next round.

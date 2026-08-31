@@ -25,6 +25,12 @@ import { handleMessage, type HandlerContext } from './handlers.js';
 import { safeEqual } from './ids.js';
 import { HOST_ONLY, PHASE_HANDLERS, isMessageAllowedInPhase } from './phases/index.js';
 import { RateLimiter } from './rateLimit.js';
+import {
+  logMatchEnd,
+  logPhaseEnter,
+  logPhaseExit,
+  type PhaseExitReason,
+} from './pacingLog.js';
 import { migrateHost, sweepGrace, type UpkeepPorts } from './roomUpkeep.js';
 import {
   conflictResponse,
@@ -69,6 +75,13 @@ export class RoomDO implements DurableObject {
   private origin = '';
   private dirty = false;
   private broadcastPending = false;
+  /**
+   * When the current phase began, for the pacing log only. In memory on purpose:
+   * the log is diagnostic, and adding a field to persisted room state to serve it
+   * would be the tail wagging the dog. Hibernation resets it to null and the log
+   * prints `after=?` for that one transition.
+   */
+  private phaseEnteredAt: number | null = null;
   private queuedSfx: string[] = [];
   private queuedToasts: { kind: 'info' | 'good' | 'bad' | 'host'; message: string }[] = [];
 
@@ -213,7 +226,7 @@ export class RoomDO implements DurableObject {
 
     if ((room.timers.phase ?? Infinity) <= now) {
       clearTimer(room, 'phase');
-      this.runTransitions(now, (ctx) => PHASE_HANDLERS[room.phase].onTimeout(ctx));
+      this.runTransitions(now, 'timeout', (ctx) => PHASE_HANDLERS[room.phase].onTimeout(ctx));
     } else {
       // Someone may have just been swept out of the round the room was waiting on.
       this.settlePhase(now);
@@ -264,7 +277,7 @@ export class RoomDO implements DurableObject {
   private upkeepPorts(): UpkeepPorts {
     return {
       toast: (kind, message) => this.queuedToasts.push({ kind, message }),
-      goTo: (now, phase) => this.runTransitions(now, (ctx) => ctx.goTo(phase)),
+      goTo: (now, phase) => this.runTransitions(now, 'reset', (ctx) => ctx.goTo(phase)),
     };
   }
 
@@ -295,7 +308,7 @@ export class RoomDO implements DurableObject {
    * That is what lets a round with no eligible competitors fall straight through to
    * the next one instead of stalling on a deadline nobody will meet.
    */
-  runTransitions(now: number, mutate: (ctx: PhaseControl) => void): void {
+  runTransitions(now: number, reason: PhaseExitReason, mutate: (ctx: PhaseControl) => void): void {
     const room = this.room;
     if (room === null) return;
 
@@ -323,9 +336,16 @@ export class RoomDO implements DurableObject {
         break;
       }
 
+      // Chained transitions inside one event are the machine falling through a phase
+      // nobody was eligible to act in, not the original cause repeating.
+      logPhaseExit(room, room.phase, step === 0 ? reason : 'auto', now, this.phaseEnteredAt);
+
       room.phase = target;
       clearTimer(room, 'phase');
       PHASE_HANDLERS[target].onEnter(control);
+      this.phaseEnteredAt = now;
+      logPhaseEnter(room, target, now);
+      if (target === 'FINAL_RESULTS') logMatchEnd(room, now);
 
       // A phase can *begin* already blocked on somebody who is offline — they left
       // during the previous phase, so no disconnect event will arrive to shorten it.
@@ -345,7 +365,7 @@ export class RoomDO implements DurableObject {
   advanceCurrentPhase(now: number): void {
     const room = this.room;
     if (room === null) return;
-    this.runTransitions(now, (ctx) => PHASE_HANDLERS[room.phase].onTimeout(ctx));
+    this.runTransitions(now, 'host', (ctx) => PHASE_HANDLERS[room.phase].onTimeout(ctx));
   }
 
   /**
@@ -359,7 +379,7 @@ export class RoomDO implements DurableObject {
   settlePhase(now: number): void {
     const room = this.room;
     if (room === null) return;
-    this.runTransitions(now, (ctx) => {
+    this.runTransitions(now, 'presence', (ctx) => {
       const handler = PHASE_HANDLERS[room.phase];
       handler.onPresenceChange?.(ctx);
       if (handler.isComplete(ctx)) handler.onTimeout(ctx);
@@ -426,10 +446,10 @@ export class RoomDO implements DurableObject {
       now,
       player,
       effects: this.effects(),
-      goTo: (phase) => this.runTransitions(now, (ctx) => ctx.goTo(phase)),
-      advancePhase: () => {
+      goTo: (phase) => this.runTransitions(now, 'host', (ctx) => ctx.goTo(phase)),
+      advancePhase: (reason = 'all-submitted') => {
         const handler = PHASE_HANDLERS[room.phase];
-        this.runTransitions(now, (ctx) => {
+        this.runTransitions(now, reason, (ctx) => {
           // A submission can be what makes a phase "stuck on absent people only":
           // the last *online* competitor answering leaves nobody but a player who
           // has gone. Re-asking here is what stops the room sitting out the whole
