@@ -6,8 +6,9 @@ Everything you need to run a session, plus the sheet to fill in while you run it
 
 ## The live URL
 
-> **NOT YET DEPLOYED.** This session could not reach Cloudflare — see
-> [Deploying](#deploying) below for the one command that fills this in.
+> Deployed automatically on every push to the development branch. The exact URL is
+> printed into the workflow run's job summary — Actions tab, newest **deploy** run.
+> See [DEPLOY.md](DEPLOY.md).
 
 ```
 LIVE URL:  ______________________________________________
@@ -194,46 +195,23 @@ polish elsewhere will fix it.
 
 ## Deploying
 
-Deployment did not happen in the build session. Two independent blockers, both
-outside the code:
+Continuous deployment is set up: pushing to the development branch runs `pnpm verify`
+as a gate, builds, deploys to Cloudflare, and then hits the live URL to confirm it
+serves the app and can create a room. A green tick means the game is actually up.
 
-1. **No Cloudflare credentials.** `wrangler whoami` reports not authenticated, and
-   `wrangler login` needs an interactive browser.
-2. **Egress policy.** Every Cloudflare host — `api.cloudflare.com`,
-   `dash.cloudflare.com`, `workers.dev` — answers `403` to CONNECT through this
-   environment's proxy. So `wrangler deploy` fails on network before it ever reaches
-   the credential question.
+**[DEPLOY.md](DEPLOY.md)** has the details — the two repository secrets, how to trigger
+a manual redeploy, how to roll back, and how to read `wrangler tail` against the live
+worker.
 
-From a machine with normal network access:
+To run the bot harness against the deployed game:
 
 ```bash
-npx wrangler login                                   # once
-pnpm build
-npx wrangler deploy --config server/wrangler.toml
-```
-
-The first deploy applies migration tag `v1`, which creates the `RoomDO` Durable
-Object class with `new_sqlite_classes`. Wrangler prints the migration and the
-`*.workers.dev` URL. Paste that URL at the top of this file.
-
-Then verify the deployment against the real edge:
-
-```bash
-# The SPA is served by the assets binding
-curl -sS -o /dev/null -w '%{http_code}\n' https://YOUR-URL/
-
-# The Worker answers before the SPA fallback (run_worker_first)
-curl -sS https://YOUR-URL/api/health          # {"ok":true,"service":"blurt"}
-
-# A full 3-round Classic match with the finale, over real WebSockets,
-# with per-phase round-trip latency
 pnpm simulate --url https://YOUR-URL --players 4 --rounds 3 --mode classic --timings
 ```
 
-That last command is the one worth keeping. It is the same harness the build used, it
-speaks the real protocol over `wss://`, and `--timings` reports round-trip time and
-phase duration per phase. For reference, the identical run against a local
-`wrangler dev` completes in **33.8s** with a **3ms** median round trip — that is
+That is the same harness the build used, over real `wss://`, and `--timings` reports
+round-trip time and phase duration per phase. For reference, the identical run against
+a local `wrangler dev` completes in about 22s with a 3ms median round trip — that is
 loopback, so treat it as the floor and expect the edge numbers to be the real ones.
 
 ---

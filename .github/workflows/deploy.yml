@@ -1,0 +1,193 @@
+# BLURT — continuous deployment to Cloudflare Workers.
+#
+# Pushing to the development branch publishes the game. The gate is `pnpm verify`:
+# content lint, typecheck, eslint and the unit tests all run *before* anything is
+# uploaded, so a broken build cannot reach the live URL. A green tick on this workflow
+# means the deployed worker answered a real request, not that an upload finished.
+name: deploy
+
+on:
+  push:
+    branches: [claude/blurt-party-game-mvp-vmeqo7]
+  workflow_dispatch:
+
+# One deploy at a time. A second push while the first is mid-flight waits rather than
+# racing it — two `wrangler deploy` runs against one worker can interleave badly, and
+# the loser would silently become the live version.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      url: ${{ steps.resolve-url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from package.json's `packageManager` field, so CI and
+      # local can never drift apart.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # ---- THE GATE ----------------------------------------------------------
+      # A failing step stops the job, so nothing below this runs on a red build.
+      - name: Verify (content lint, typecheck, eslint, unit tests)
+        run: pnpm verify
+
+      - name: Build
+        run: pnpm build
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Match `pnpm deploy` exactly: same config, same entry point.
+          command: deploy --config server/wrangler.toml
+          # Pinned to the repo's own wrangler so CI cannot deploy with a different
+          # version than the one the config was written against.
+          wranglerVersion: '4.127.1'
+
+      # The action reports the deployment URL on success. Fall back to composing it
+      # from the account's workers.dev subdomain, because the smoke check below is
+      # worthless without a URL — better to fail here than to skip it.
+      - name: Resolve deployment URL
+        id: resolve-url
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ACTION_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          url="${ACTION_URL:-}"
+
+          if [ -z "$url" ]; then
+            echo "wrangler-action reported no deployment URL; asking the API for the subdomain."
+            subdomain=$(curl -fsS \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/subdomain" \
+              | jq -r '.result.subdomain // empty')
+            if [ -n "$subdomain" ]; then
+              url="https://blurt.${subdomain}.workers.dev"
+            fi
+          fi
+
+          if [ -z "$url" ]; then
+            echo "::error::Could not determine the deployed URL, so the smoke check cannot run."
+            echo "Give the API token the 'Workers Scripts:Read' permission, or read the URL"
+            echo "from the Cloudflare dashboard under Workers & Pages."
+            exit 1
+          fi
+
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Write the URL into the job summary
+        env:
+          URL: ${{ steps.resolve-url.outputs.url }}
+        run: |
+          {
+            echo "## BLURT is live"
+            echo
+            echo "**$URL**"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Branch | \`${GITHUB_REF_NAME}\` |"
+            echo "| Worker | \`blurt\` |"
+            echo
+            echo "Smoke check runs next — this URL is only confirmed once that job is green."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # A separate job so the distinction is visible at a glance in the Actions list:
+  # "deploy" means the upload worked, "smoke" means the game actually answers.
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: The site serves the app
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          # A fresh deploy takes a moment to propagate, so retry rather than racing it.
+          # Retrying a *failure* is fine here; what would be wrong is retrying until
+          # something passes and calling that green — every attempt asserts in full.
+          # No -f: we want the status code even for a 404, and curl writes 000 of its
+          # own accord when it cannot connect at all.
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /tmp/index.html -w '%{http_code}' --max-time 20 "$URL/" || true)
+            if [ "$code" = "200" ]; then break; fi
+            echo "attempt $attempt: GET / returned ${code:-000}, waiting…"
+            sleep 5
+          done
+
+          if [ "$code" != "200" ]; then
+            echo "::error::GET / returned $code, expected 200"
+            exit 1
+          fi
+          if ! grep -q '<div id="root">' /tmp/index.html; then
+            echo "::error::GET / did not contain the app root element"
+            head -40 /tmp/index.html
+            exit 1
+          fi
+          echo "GET / → 200, app root present"
+
+      - name: A room can actually be created
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          # POST, not GET: creating a room is a write, and a link preview must never
+          # be able to do it. This also proves the Durable Object binding resolved —
+          # allocating a code goes through the room object.
+          status=$(curl -sS -X POST -o /tmp/room.json -w '%{http_code}' --max-time 20 "$URL/api/rooms" || true)
+          body=$(cat /tmp/room.json 2>/dev/null || true)
+          echo "status: ${status:-000}  body: ${body:-<empty>}"
+
+          if [ "${status:-000}" != "200" ]; then
+            echo "::error::POST /api/rooms returned ${status:-000}, expected 200"
+            exit 1
+          fi
+
+          code=$(printf '%s' "$body" | jq -r '.code // empty')
+          if ! printf '%s' "$code" | grep -Eq '^[A-Z]{4}$'; then
+            echo "::error::POST /api/rooms did not return a 4-letter room code (got: '${code}')"
+            exit 1
+          fi
+          echo "POST /api/rooms → $code"
+
+      - name: Record the result
+        if: always()
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          {
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "## Smoke check passed"
+              echo
+              echo "$URL is serving the app and creating rooms."
+            else
+              echo "## Smoke check FAILED"
+              echo
+              echo "The upload succeeded but $URL is not answering correctly."
+              echo "Roll back with \`wrangler rollback --config server/wrangler.toml\` — see DEPLOY.md."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

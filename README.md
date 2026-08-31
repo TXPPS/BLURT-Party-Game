@@ -21,7 +21,7 @@ No accounts. No install. No database. Share four letters and play.
 - [Architecture, and why Durable Objects](#architecture-and-why-durable-objects)
 - [Project structure](#project-structure)
 - [Local development](#local-development)
-- [Deployment](#deployment)
+- [Deployment](#deployment) · [DEPLOY.md](DEPLOY.md)
 - [The multiplayer model](#the-multiplayer-model)
 - [Testing](#testing)
 - [Performance](#performance)
@@ -225,8 +225,14 @@ in `wrangler.toml` uses `new_sqlite_classes`, which is available on the free pla
 first deploy applies migration tag `v1` and creates the `RoomDO` class; wrangler prints
 the migration and the resulting `*.workers.dev` URL.
 
-**Not yet deployed.** See [PLAYTEST.md](PLAYTEST.md) for the deploy and verification
-steps, and for the session kit — how to run a playtest and what to watch.
+**Continuous deployment is set up.** Pushing to the development branch runs
+`pnpm verify` as a gate, builds, deploys, and then hits the live URL to prove it
+actually answers — see **[DEPLOY.md](DEPLOY.md)** for the pipeline, the two repository
+secrets, manual redeploys, rollback, and `wrangler tail`. The deployed URL is printed
+into each run's job summary.
+
+See [PLAYTEST.md](PLAYTEST.md) for the session kit — how to run a playtest and what to
+watch.
 
 ---
 
