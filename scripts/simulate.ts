@@ -11,7 +11,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { MAX_PLAYERS } from '../shared/constants.js';
 import type { GameMode, TimerSpeed } from '../shared/types.js';
-import { Bot, checkInvariants, type BotBehaviour, type InvariantFailure } from './botHarness.js';
+import { Bot, type BotBehaviour } from './botHarness.js';
+import { checkInvariants, type InvariantFailure } from './invariants.js';
 import { FAULT_CASES, type FaultCase } from './faults.js';
 
 interface Options {

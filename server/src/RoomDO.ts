@@ -14,7 +14,6 @@ import {
   BROADCAST_COALESCE_MS,
   HANDSHAKE_TIMEOUT_MS,
   MAX_CONNECTIONS_PER_ROOM,
-  MIN_PLAYERS,
   PROTOCOL_VERSION,
 } from '../../shared/constants.js';
 import type { ClientMessage, ErrorCode, ServerMessage } from '../../shared/protocol.js';
@@ -22,27 +21,30 @@ import { ERROR_COPY } from '../../shared/protocol.js';
 import { isLegalTransition, type Phase } from '../../shared/types.js';
 import { dispatch } from './dispatch.js';
 import { DrawingStore } from './drawingStore.js';
-import { handleMessage, hasRoomFor, type HandlerContext } from './handlers.js';
+import { handleMessage, type HandlerContext } from './handlers.js';
 import { safeEqual } from './ids.js';
 import { HOST_ONLY, PHASE_HANDLERS, isMessageAllowedInPhase } from './phases/index.js';
 import { RateLimiter } from './rateLimit.js';
-import { resetForNewMatch } from './match.js';
+import { migrateHost, sweepGrace, type UpkeepPorts } from './roomUpkeep.js';
+import {
+  conflictResponse,
+  drawingResponse,
+  notFoundResponse,
+  probeResponse,
+} from './roomHttp.js';
+import { drawingUrl, joinUrl, messagesFor, sharedState } from './roomWire.js';
 import {
   assignHost,
   clearTimer,
   connectedPlayers,
   createPlayer,
   createRoomState,
-  eligiblePlayers,
   findPlayer,
   hostPlayer,
   nextAlarmAt,
-  pickNewHost,
   refreshDerivedTimers,
-  toPublicPlayer,
 } from './roomState.js';
 import type { PhaseEffects, RoomState } from './types.js';
-import { buildPrivate, buildPublicRoom, buildPublicView, buildSelfView } from './views.js';
 
 const STORAGE_KEY = 'room';
 /** Guard against a phase graph that somehow loops without consuming time. */
@@ -90,63 +92,56 @@ export class RoomDO implements DurableObject {
     const url = new URL(request.url);
     const now = Date.now();
 
-    if (url.pathname === '/probe') {
-      const room = this.liveRoom();
-      return Response.json({
-        exists: room !== null,
-        started: room !== null && room.phase !== 'LOBBY',
-        full: room !== null && !hasRoomFor(room, now),
-        players: room?.players.filter((p) => !p.kicked && p.identified).length ?? 0,
-      });
-    }
+    switch (url.pathname) {
+      case '/probe':
+        return probeResponse(this.liveRoom(), now);
 
-    if (url.pathname === '/claim') {
-      if (this.liveRoom() !== null) return Response.json({ ok: false }, { status: 409 });
-      const code = url.searchParams.get('code') ?? '';
-      this.room = createRoomState(code, now);
-      this.dirty = true;
-      await this.flush();
-      return Response.json({ ok: true, code });
-    }
-
-    // Drawings are served over HTTP rather than pushed through every broadcast.
-    // Immutable caching is safe because the URL carries the match's start time, so a
-    // PLAY AGAIN reusing drawing index 0 is a different URL.
-    if (url.pathname === '/drawing') {
-      const index = Number(url.searchParams.get('index') ?? '-1');
-      const bytes = Number.isInteger(index) && index >= 0 ? this.drawings.toBytes(index) : null;
-      if (bytes === null) return new Response('not found', { status: 404 });
-      return new Response(bytes, {
-        headers: {
-          'content-type': 'image/png',
-          'cache-control': 'public, max-age=3600, immutable',
-        },
-      });
-    }
-
-    if (url.pathname === '/ws') {
-      if (request.headers.get('Upgrade') !== 'websocket') {
-        return new Response('expected websocket', { status: 426 });
+      case '/claim': {
+        if (this.liveRoom() !== null) return conflictResponse();
+        const code = url.searchParams.get('code') ?? '';
+        this.room = createRoomState(code, now);
+        this.dirty = true;
+        await this.flush();
+        return Response.json({ ok: true, code });
       }
-      // Reclaim squatters *before* counting, or somebody who knows the room code
-      // could hold every slot open without ever identifying themselves.
-      this.sweepUnboundSockets(now);
 
-      // Ten players plus a couple of spare display sockets.
-      if (this.ctx.getWebSockets().length >= MAX_CONNECTIONS_PER_ROOM) {
-        return new Response('room is at its connection limit', { status: 503 });
+      // Drawings are served over HTTP rather than pushed through every broadcast.
+      case '/drawing': {
+        const index = Number(url.searchParams.get('index') ?? '-1');
+        return drawingResponse(
+          Number.isInteger(index) && index >= 0 ? this.drawings.toBytes(index) : null,
+        );
       }
-      this.origin = url.searchParams.get('origin') ?? this.origin;
 
-      const pair = new WebSocketPair();
-      const client = pair[0];
-      const server = pair[1];
-      this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ playerId: null, openedAt: now } satisfies SocketMeta);
-      return new Response(null, { status: 101, webSocket: client });
+      case '/ws':
+        return this.openSocket(request, url, now);
+
+      default:
+        return notFoundResponse();
     }
+  }
 
-    return new Response('not found', { status: 404 });
+  /** Upgrade to a WebSocket, if the room has room. */
+  private openSocket(request: Request, url: URL, now: number): Response {
+    if (request.headers.get('Upgrade') !== 'websocket') {
+      return new Response('expected websocket', { status: 426 });
+    }
+    // Reclaim squatters *before* counting, or somebody who knows the room code could
+    // hold every slot open without ever identifying themselves.
+    this.sweepUnboundSockets(now);
+
+    // Ten players plus a couple of spare display sockets.
+    if (this.ctx.getWebSockets().length >= MAX_CONNECTIONS_PER_ROOM) {
+      return new Response('room is at its connection limit', { status: 503 });
+    }
+    this.origin = url.searchParams.get('origin') ?? this.origin;
+
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+    this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({ playerId: null, openedAt: now } satisfies SocketMeta);
+    return new Response(null, { status: 101, webSocket: client });
   }
 
   /* ---------------------------------------------------------------- *
@@ -229,32 +224,14 @@ export class RoomDO implements DurableObject {
     await this.flush();
   }
 
-  /** Players whose 90-second grace window lapsed stay on the scoreboard, but sit out. */
+  /**
+   * Apply the grace sweep, then let the room settle. The rule itself lives in
+   * `roomUpkeep.ts` so it can be tested without a running worker.
+   */
   private sweepGrace(now: number): void {
     const room = this.room;
     if (room === null) return;
-    let changed = false;
-
-    for (const player of room.players) {
-      if (player.connected || player.departed || player.kicked) continue;
-      if (player.disconnectedAt === null) continue;
-      if (now - player.disconnectedAt < 90_000) continue;
-      player.departed = true;
-      player.ready = false;
-      changed = true;
-      this.queuedToasts.push({ kind: 'bad', message: `${player.name || 'Someone'} left.` });
-    }
-
-    if (!changed) return;
-    this.dirty = true;
-
-    // A match that has run out of people returns to the lobby rather than limping on
-    // with a single player winning every round unopposed.
-    if (room.phase !== 'LOBBY' && eligiblePlayers(room, now).length < MIN_PLAYERS) {
-      this.queuedToasts.push({ kind: 'bad', message: 'Not enough players left. Back to the lobby.' });
-      resetForNewMatch(room);
-      this.runTransitions(now, (ctx) => ctx.goTo('LOBBY'));
-    }
+    if (sweepGrace(room, now, this.upkeepPorts())) this.dirty = true;
   }
 
   /**
@@ -280,19 +257,15 @@ export class RoomDO implements DurableObject {
   private migrateHost(): void {
     const room = this.room;
     if (room === null) return;
-    const successor = pickNewHost(room);
-    if (successor === undefined) {
-      // Nobody is promotable yet — everyone still here is on the name screen. Push
-      // the retry out a full interval instead of leaving a deadline in the past,
-      // which `refreshDerivedTimers` would re-arm at the same instant and spin the
-      // alarm hot.
-      room.hostMissingSince = Date.now();
-      this.dirty = true;
-      return;
-    }
-    assignHost(room, successor.id);
-    this.queuedToasts.push({ kind: 'host', message: `${successor.name} is now the host.` });
-    this.dirty = true;
+    if (migrateHost(room, Date.now(), this.upkeepPorts())) this.dirty = true;
+  }
+
+  /** The narrow surface `roomUpkeep` is allowed to reach back through. */
+  private upkeepPorts(): UpkeepPorts {
+    return {
+      toast: (kind, message) => this.queuedToasts.push({ kind, message }),
+      goTo: (now, phase) => this.runTransitions(now, (ctx) => ctx.goTo(phase)),
+    };
   }
 
   private async destroyRoom(): Promise<void> {
@@ -534,29 +507,14 @@ export class RoomDO implements DurableObject {
     const room = this.room;
     if (room === null) return;
     const now = Date.now();
-
-    const publicRoom = buildPublicRoom(room);
-    const players = room.players.filter((p) => !p.kicked).map((p) => toPublicPlayer(p, now));
-    const view = buildPublicView(room, now, (index) => this.drawingUrl(room, index), this.joinUrl(room));
+    const shared = sharedState(room, now, (i) => drawingUrl(room, i), joinUrl(this.origin, room.code));
 
     for (const socket of this.ctx.getWebSockets()) {
       const meta = this.metaOf(socket);
       if (meta.playerId === null) continue;
       const player = findPlayer(room, meta.playerId);
       if (player === undefined) continue;
-
-      this.send(socket, {
-        t: 'state',
-        phase: room.phase,
-        room: publicRoom,
-        players,
-        view,
-        you: buildSelfView(room, player),
-        serverTime: now,
-      });
-
-      const priv = buildPrivate(room, player);
-      if (priv !== null) this.send(socket, priv);
+      for (const message of messagesFor(room, player, shared)) this.send(socket, message);
     }
 
     for (const eventId of this.queuedSfx) this.broadcastRaw({ t: 'sfx', eventId });
@@ -572,20 +530,6 @@ export class RoomDO implements DurableObject {
       if (this.metaOf(socket).playerId === null) continue;
       this.send(socket, message);
     }
-  }
-
-  private joinUrl(room: RoomState): string {
-    return this.origin.length > 0 ? `${this.origin}/?room=${room.code}` : '';
-  }
-
-  /**
-   * A cacheable URL for one drawing. The match start time is in the query so that a
-   * PLAY AGAIN reusing drawing index 0 never serves the previous match's picture out
-   * of the browser cache.
-   */
-  private drawingUrl(room: RoomState, index: number): string {
-    const version = room.match?.startedAt ?? 0;
-    return `/api/rooms/${room.code}/drawing/${index}?v=${version}`;
   }
 
   /* ---------------------------------------------------------------- *

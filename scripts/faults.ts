@@ -7,7 +7,8 @@
  * nothing, so most of these assert on a specific server response.
  */
 
-import type { Bot, InvariantFailure } from './botHarness.js';
+import type { Bot } from './botHarness.js';
+import type { InvariantFailure } from './invariants.js';
 import type { RunConfig } from './simulate.js';
 
 export interface FaultCase {

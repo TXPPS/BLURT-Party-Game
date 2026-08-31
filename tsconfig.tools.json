@@ -10,6 +10,16 @@
   "include": [
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    // Pure server-domain modules, so `tests/roomUpkeep.test.ts` can reach the rules
+    // it covers. Deliberately not `server/src/**`: RoomDO, the worker entry and the
+    // HTTP responses are written against `@cloudflare/workers-types`, and compiling
+    // those here would resolve `WebSocket`/`Response` to the DOM versions instead.
+    "server/src/ids.ts",
+    "server/src/match.ts",
+    "server/src/roomState.ts",
+    "server/src/roomUpkeep.ts",
+    "server/src/story.ts",
+    "server/src/types.ts",
     "web/src/brand.ts",
     "shared/**/*.ts",
     "content/**/*.ts",
