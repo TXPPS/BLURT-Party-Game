@@ -29,6 +29,51 @@ body {
   overflow-x: hidden;
 }
 
+/* ------------------------------------------------------------------ *
+ * Scrollbars
+ *
+ * One rule for every scrollable region in the app, applied to the root so it
+ * inherits rather than being remembered per component. A default grey bar next to
+ * this palette reads as somebody else's UI showing through.
+ *
+ * Two mechanisms because the browsers disagree and always have: `scrollbar-color`
+ * and `scrollbar-width` are the standard (Firefox, and Chrome from 121), while
+ * WebKit — Safari, and older Chrome — only understands ::-webkit-scrollbar. Both
+ * are set on purpose; whichever the browser honours, the result matches.
+ * ------------------------------------------------------------------ */
+
+:root {
+  scrollbar-color: var(--c-ink-faint) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--c-ink-faint);
+  border: 2px solid transparent;
+  border-radius: var(--r-pill);
+  /* Keeps the paper showing through the border so the thumb reads as a lozenge
+     sitting on the page rather than a bar cut into it. */
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--c-ink);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /**
  * Paper grain: a single very faint tiled layer, never strong enough to move a
  * contrast ratio.

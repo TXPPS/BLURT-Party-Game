@@ -12,6 +12,8 @@
  * click to a sad trombone.
  */
 
+import { MusicBed } from './music.js';
+
 export interface Voice {
   /** `tone` is an oscillator; `noise` is a filtered burst of white noise. */
   kind: 'tone' | 'noise';
@@ -63,6 +65,8 @@ export class Synth {
   private master: GainNode | null = null;
   private sfxBus: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
+  private musicBus: GainNode | null = null;
+  private readonly bed = new MusicBed();
   private levels: MixerLevels = { master: 0.7, sfx: 0.9, music: 0.4, muted: false };
 
   /** True once a user gesture has unlocked audio. */
@@ -91,6 +95,23 @@ export class Synth {
     if (this.sfxBus !== null && this.ctx !== null) {
       this.sfxBus.gain.setTargetAtTime(levels.sfx, this.ctx.currentTime, 0.02);
     }
+    if (this.ctx !== null && this.bed.playing) this.bed.setLevel(this.ctx, levels.music);
+  }
+
+  /** Start the music bed. Idempotent, and silent until audio has been unlocked. */
+  startMusic(seed: number): void {
+    this.ensureContext();
+    if (this.ctx === null || this.musicBus === null) return;
+    this.bed.start(this.ctx, this.musicBus, this.levels.music, seed);
+  }
+
+  stopMusic(): void {
+    if (this.ctx !== null && this.bed.playing) this.bed.stop(this.ctx);
+  }
+
+  /** Pull the bed down so a sting or a reveal is not fighting it. */
+  duckMusic(seconds = 2.2): void {
+    if (this.ctx !== null && this.bed.playing) this.bed.duckFor(this.ctx, seconds);
   }
 
   private ensureContext(): void {
@@ -109,9 +130,16 @@ export class Synth {
     sfx.gain.value = this.levels.sfx;
     sfx.connect(master);
 
+    // The music channel finally has something to plug into. It sits alongside the
+    // SFX bus rather than through it, so ducking the bed never touches a sting.
+    const music = ctx.createGain();
+    music.gain.value = 1;
+    music.connect(master);
+
     this.ctx = ctx;
     this.master = master;
     this.sfxBus = sfx;
+    this.musicBus = music;
   }
 
   /** One second of white noise, generated once and reused by every noise voice. */

@@ -47,6 +47,14 @@ export interface AudioHandle {
   /** Must be called from a real user gesture before anything can make noise. */
   unlock(): void;
   unlocked: boolean;
+  /**
+   * Start or stop the music bed.
+   *
+   * Driven by the caller rather than by this hook, because whether a device *should*
+   * carry the music is a property of the device (shared screen or one phone in a
+   * pocket), not of the audio engine.
+   */
+  setMusic(on: boolean, seed?: number): void;
 }
 
 export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
@@ -103,13 +111,23 @@ export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
     (event: SfxEventId) => {
       if (!isSfxEventId(event)) return;
       if (!dramaticRef.current) return;
+      // A sting and a music bed at the same level fight each other, and the sting is
+      // the one carrying information. Pull the bed down for the length of the moment.
+      synthRef.current?.duckMusic();
       play(event);
     },
     [play],
   );
 
+  const setMusic = useCallback((on: boolean, seed = 0) => {
+    const synth = synthRef.current;
+    if (synth === null) return;
+    if (on) synth.startMusic(seed);
+    else synth.stopMusic();
+  }, []);
+
   return useMemo(
-    () => ({ levels, setLevels: setLevelsState, ui, cue, unlock, unlocked }),
-    [levels, ui, cue, unlock, unlocked],
+    () => ({ levels, setLevels: setLevelsState, ui, cue, unlock, unlocked, setMusic }),
+    [levels, ui, cue, unlock, unlocked, setMusic],
   );
 }

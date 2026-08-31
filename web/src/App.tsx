@@ -54,6 +54,24 @@ export function App(): React.JSX.Element {
   const hostNow = room.state?.you.isHost ?? false;
   useEffect(() => setIsHost(hostNow), [hostNow]);
 
+  /**
+   * The music bed plays on whichever device is carrying the room for everybody — the
+   * host's screen, or anything switched to the big-screen layout — and stays off on a
+   * pocketful of phones, which would otherwise be eight copies of the same loop
+   * slightly out of phase. Same rule as the dramatic stings, for the same reason.
+   *
+   * Seeded from the room code so two rooms are not humming the same four chords.
+   */
+  const carriesMusic = playsDramaticSfx(prefs, hostNow) && room.state !== null;
+  const roomCode = room.state?.room.code ?? '';
+  useEffect(() => {
+    if (!audio.unlocked) return;
+    let seed = 0;
+    for (const ch of roomCode) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    audio.setMusic(carriesMusic, seed);
+    return () => audio.setMusic(false);
+  }, [audio, carriesMusic, roomCode]);
+
   const goHome = useCallback(() => {
     const url = new URL(location.href);
     url.searchParams.delete('room');
