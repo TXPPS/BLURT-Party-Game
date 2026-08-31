@@ -22,7 +22,46 @@ permissions:
   contents: read
 
 jobs:
+  # Everything below runs from an empty node_modules. That is the whole point: the
+  # bug this guards against — a root script calling a binary that only a workspace
+  # owns — is invisible on a tree that was built up incrementally, and only appears on
+  # a clean install. `pnpm build` failed in CI for exactly this reason while passing
+  # locally for weeks.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # No `cache:` here on purpose. A restored pnpm store would hide exactly the
+          # failure this job exists to catch.
+
+      - name: Install from a clean tree
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (content lint, typecheck, eslint, unit tests)
+        run: pnpm verify
+
+      - name: Build
+        run: pnpm build
+
+      - name: The build actually produced a client
+        run: |
+          set -euo pipefail
+          test -f web/dist/index.html || { echo "::error::web/dist/index.html missing"; exit 1; }
+          grep -q '<div id="root">' web/dist/index.html \
+            || { echo "::error::built index.html has no app root"; exit 1; }
+          count=$(find web/dist/assets -name '*.js' | wc -l)
+          [ "$count" -gt 0 ] || { echo "::error::no JS emitted into web/dist/assets"; exit 1; }
+          echo "built client OK — $count JS chunks"
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -42,11 +81,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # ---- THE GATE ----------------------------------------------------------
-      # A failing step stops the job, so nothing below this runs on a red build.
-      - name: Verify (content lint, typecheck, eslint, unit tests)
-        run: pnpm verify
-
+      # No `pnpm verify` here: `needs: build` is the gate, and that job ran the full
+      # suite against this exact commit on a clean install. This job still has to
+      # build, because wrangler uploads web/dist as the site's assets.
       - name: Build
         run: pnpm build
 

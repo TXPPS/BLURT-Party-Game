@@ -30,6 +30,7 @@ findings are **fixed**, not merely recorded.
 | 15 | Simultaneous drawing finale | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — worst case 21.3m → 13.2m at NORMAL; matrix 16/16, faults 22/22 |
 | 16 | Everyone draws; showcase decoupled | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — 3 artists → all 10; match length unchanged (+3s worst); finale share 26.0–34.7% |
 | 17 | Prompts from the whole story | Content System Designer | ✅ complete | QA Engineer | PASS — generic prompts 7/10 → 0/10 at a full table; match length unmoved |
+| 18 | Clean-clone build | DevOps / Deployment Engineer | ✅ complete | Executive Producer | PASS — `vite: not found` fixed at the root; verified from an empty tree and guarded in CI |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -1063,6 +1064,91 @@ the prompt.
 
 ---
 
+## PHASE 18 — THE BUILD ONLY WORKED HERE
+
+**Driving role:** DevOps / Deployment Engineer · **Auditor:** Executive Producer
+
+CI failed on the first deploy with `sh: 1: vite: not found`. The root `build` script
+called `vite` bare, but `vite` is a devDependency of the **web** workspace, not the
+root — so it resolves from `web/node_modules/.bin` and nowhere else. It had worked
+locally for the whole build because that tree was grown incrementally and never
+installed from scratch.
+
+Reproduced before fixing, on a genuinely empty tree:
+
+```
+$ ls node_modules/.bin/ | grep -x vite     # nothing
+$ ls web/node_modules/.bin/ | grep -x vite # vite
+$ sh -c 'vite build --config web/vite.config.ts'
+sh: 1: vite: not found
+```
+
+### Audit of every root script
+
+The request assumed this was widespread. It was not — the audit found **exactly two**
+broken scripts, both for the same reason, and it is worth recording which were fine so
+nobody re-churns them later.
+
+| Script | Binary | Owner | Status |
+|---|---|---|---|
+| `dev:web` | `vite` | **web** | ❌ was broken |
+| `build` | `tsc`, `vite` | root, **web** | ❌ was broken (the `vite` half) |
+| `dev` | `concurrently` | root | ✅ |
+| `dev:server`, `deploy` | `wrangler` | root | ✅ |
+| `test`, `test:watch` | `vitest` | root | ✅ |
+| `simulate`, `lint:content`, `screenshots` | `tsx` | root | ✅ |
+| `lint` | `eslint` | root | ✅ |
+| `typecheck` | `tsc` | root | ✅ |
+| `verify` | delegates only | — | ✅ |
+
+`web` had no `scripts` block at all, so `--filter` had nothing to call. It now owns
+`dev` and `build`, and the root delegates to it. `web/vite.config.ts` resolves every
+path from `import.meta.url`, so running vite with its cwd inside `web/` produces byte-
+identical output in the same place.
+
+### A second thing that only worked here
+
+`scripts/screenshots.ts` hardcoded `executablePath: '/opt/pw-browsers/chromium'` —
+**this sandbox's** path. The visual audit ran on this machine and could not have run on
+any other, including a fresh clone. Same class of defect as the vite one: an
+environment detail baked into the repo.
+
+It now prefers `BLURT_CHROMIUM`, then a preinstalled browser at
+`PLAYWRIGHT_BROWSERS_PATH/chromium` *if it actually exists*, and otherwise lets
+Playwright resolve its own. Worth knowing: Playwright's own default here points at
+`chromium-1234` while this image ships `chromium-1194`, so without the fallback chain a
+clean install finds nothing.
+
+### Verified from empty, not from what was lying around
+
+Every `node_modules`, `.tsbuild` and `web/dist` deleted, then:
+
+| Step | Result |
+|---|---|
+| `pnpm install --frozen-lockfile` | 9.3s, lockfile unchanged |
+| `pnpm verify` | 268 tests, green |
+| `pnpm build` | client emitted to `web/dist` |
+| `pnpm dev` | both servers up in 7s |
+| `GET :5173/` | serves the app — real `<title>`, real `#root` |
+| `GET :5173/api/health` | proxied to the worker |
+| `POST :5173/api/rooms` | `{"code":"SIFT"}` — through the Durable Object |
+| `pnpm simulate` | full 2-player match to FINAL_RESULTS |
+| `pnpm screenshots` | ran and passed its layout assertions |
+
+### The guard
+
+A `build` job now runs first and gates `deploy`: clean checkout, **no dependency
+cache**, `pnpm install --frozen-lockfile`, `pnpm verify`, `pnpm build`, then an
+assertion that `web/dist/index.html` exists and carries the app root. Omitting the
+cache is the point — a restored pnpm store would hide the exact failure the job exists
+to catch.
+
+`deploy` no longer re-runs `pnpm verify`. `needs: build` already proved it against the
+same commit on a clean tree, and one job owning correctness beats two copies that can
+drift. It still builds, because wrangler uploads `web/dist` as the site's assets.
+
+---
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -1194,7 +1280,8 @@ Producer rejected two in-scope-adjacent ideas during the build:
 
 | | Criterion | Evidence |
 |---|---|---|
-| ✅ | `pnpm dev` starts client + worker with no errors or console warnings | Verified: worker answers on :8787, client on :5173, and Vite proxies `/api` through to the worker. Playwright captures zero `pageerror` and zero console errors across the whole sweep. The only log noise is `wrangler` failing to fetch Cloudflare's `Request.cf` metadata through this sandbox's egress proxy — an environment artefact, not the project's |
+| ✅ | `pnpm install && pnpm dev` works from a genuinely clean clone | **Re-verified properly in Phase 18.** Every `node_modules` deleted, `pnpm install --frozen-lockfile`, then dev: worker answers on :8787, client on :5173, Vite proxies `/api` through, and `POST /api/rooms` returns a code. Playwright captures zero `pageerror` and zero console errors across the sweep. The only log noise is `wrangler` failing to fetch Cloudflare's `Request.cf` metadata through this sandbox's egress proxy — an environment artefact, not the project's |
+| ✅ | `pnpm build` works from a genuinely clean clone | Was **false** until Phase 18 — `vite` is a `web` devDependency and the root script called it bare, so it only resolved on an incrementally-built tree. Now delegated to the owning workspace and guarded by a no-cache CI job |
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |

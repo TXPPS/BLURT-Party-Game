@@ -12,6 +12,7 @@
  * Requires the app to be served (wrangler dev on :8787 by default).
  */
 
+import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -37,6 +38,27 @@ function valueOf(flag: string): string | null {
 const onlyScene = valueOf('only');
 const onlyWidth = valueOf('width');
 
+/**
+ * Which chromium to drive, or null to let Playwright choose.
+ *
+ * This was hardcoded to one sandbox's path, which meant the visual audit ran on that
+ * machine and nowhere else — a fresh clone could not shoot a single screenshot. Where
+ * a browser lives is a property of the machine, not of this repo.
+ *
+ * `BLURT_CHROMIUM` wins if set. Otherwise use a browser preinstalled at the
+ * conventional `PLAYWRIGHT_BROWSERS_PATH/chromium` when one is actually there, and
+ * failing that let Playwright resolve its own — which is what a developer has after
+ * `npx playwright install chromium`.
+ */
+const chromiumPath = ((): string | null => {
+  const override = process.env.BLURT_CHROMIUM;
+  if (override !== undefined && override !== '') return override;
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (root === undefined || root === '') return null;
+  const candidate = `${root}/chromium`;
+  return existsSync(candidate) ? candidate : null;
+})();
+
 
 async function main(): Promise<void> {
   const health = await fetch(`${BASE}/api/health`).catch(() => null);
@@ -49,7 +71,7 @@ async function main(): Promise<void> {
   await mkdir(OUT, { recursive: true });
 
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium',
+    ...(chromiumPath === null ? {} : { executablePath: chromiumPath }),
     // The game makes no third-party requests; silence the browser's own so a sandbox
     // without egress does not fill the log with failed connections.
     args: ['--disable-features=AutofillServerCommunication,OptimizationHints,Translate'],

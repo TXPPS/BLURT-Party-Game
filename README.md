@@ -43,7 +43,13 @@ pnpm dev          # worker on :8787, client on :5173
 Open <http://localhost:5173>, hit **START A ROOM**, and send the four-letter code to
 everyone else. That is the whole onboarding.
 
-Requires **Node ≥ 20**. `pnpm` is the package manager of record; `npm` works too.
+Requires **Node ≥ 20**. `pnpm` is the package manager of record.
+
+This is a pnpm workspace: `vite` belongs to `web`, so the root delegates to it
+(`pnpm --filter @blurt/web build`) rather than relying on hoisting. CI runs a clean
+install with **no dependency cache** on every push for exactly that reason — a script
+that only resolves on an incrementally-built `node_modules` passes locally and fails on
+a fresh clone.
 
 ---
 
@@ -361,7 +367,7 @@ oversized payloads, message floods, 1 round, 15 rounds, and a full house.
 `--matrix` runs the player-count grid: 2 / 4 / 10 across both modes with and without
 the finale, plus 3, 6 and 8. **16/16 passing.**
 
-**Visual audit** (`pnpm screenshots`) — drives the running app with one real browser
+**Visual audit** (`pnpm screenshots`, needs `npx playwright install chromium` once) — drives the running app with one real browser
 context per player and captures every screen at 320 / 390 / 768 / 1280 / 1920 px. It
 also asserts against the live DOM at every breakpoint: no horizontal overflow, every
 control at least 44×44, every control with an accessible name, every image with an
