@@ -24,7 +24,7 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 3. Two answers go head to head. Vote for the better one. You can't vote for your own.
 4. Winning answers get quietly filed into a story nobody has seen yet.
 5. At the end the story is read out with your answers wedged into it. That's the joke.
-6. Then one drawing round, then scores. Budget fifteen minutes.
+6. Then a drawing round — a few of you draw, everyone else guesses — and then scores.
 
 ---
 
@@ -45,15 +45,30 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 
 The single biggest pacing risk, and the main thing this session is for.
 
-At NORMAL timing a 3-round match with the finale is **21 minutes if every phase runs
-to the buzzer**, and `DRAWING_ACTIVE` is **9.4 of those 21 minutes** — three artists
-at 3 minutes 7 seconds each, one after another. It ends the moment the artist
-submits, so it is usually far shorter. But if one person is slow, everybody else is
-watching a progress bar.
+The finale runs artists **one after another**: up to four in a room of five or fewer,
+up to three from six players up, and never more than the story has drawing prompts for
+(a 4-player test run produced three, not four). Each artist gets `answerMs × 2.5` to
+draw — **3 minutes 7 seconds** at NORMAL.
 
-If the room stalls there, the lever is `DRAWING_TIME_MULTIPLIER` in
-`shared/constants.ts` (currently `2.5×` the answer timer), or just run the session on
-**FAST**, which is what all the automated runs use.
+At NORMAL timing, if every phase ran to its buzzer, a 3-round match with the finale is:
+
+| Room | Worst case | Of which is drawing time |
+|---|---|---|
+| 3 artists | 21.2 min | 9.4 min (44%) |
+| 4 artists | 25.8 min | 12.5 min (49%) |
+
+Each drawing phase ends the moment that artist submits, so in practice it is far
+shorter. But the artists go **one at a time**, so a single slow person leaves everybody
+else watching a progress bar — and a small room gets *more* artists, not fewer.
+
+If the room stalls there, the levers in `shared/constants.ts` are
+`DRAWING_TIME_MULTIPLIER` (currently `2.5×` the answer timer) and `DRAWING_MAX_ARTISTS`
+(currently 4). Or just run the session on **FAST**, which is what every automated run
+in this build uses.
+
+Also worth knowing: "Budget fifteen minutes" in the read-aloud above is a realistic
+expectation, not the worst case. If your session runs to 25 minutes, the table above
+is why.
 
 ---
 
@@ -217,7 +232,11 @@ loopback, so treat it as the floor and expect the edge numbers to be the real on
 - **A started game refuses new joiners.** Get everyone in during the lobby.
 - **Room codes are four letters and guessable.** Fine for a living room; do not post
   the code publicly.
-- **Nothing is persisted.** Closing the shared screen ends the room. Scores do not
-  survive, by design.
+- **Closing the shared screen does not end the room.** Host authority migrates to
+  whoever is still there, so if the TV browser is shut by accident, reopen the link
+  and rejoin with the same code — the match is still running. A room expires 30
+  minutes after it goes quiet, or 4 hours after it was created, whichever comes first.
+- **Nothing survives that.** No accounts, no history, no saved scores, by design. When
+  the room expires the match is gone.
 - **The music channel is silent.** There is no soundtrack — only synthesised effects.
   That is expected, not a broken asset.
