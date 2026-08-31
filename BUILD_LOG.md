@@ -25,6 +25,7 @@ findings are **fixed**, not merely recorded.
 | 10 | Functional audit | Game UX Designer | ✅ complete | Executive Producer | PASS — full arc played through the real UI, including PLAY AGAIN and RETURN TO LOBBY |
 | 11 | Adversarial review | All roles | ✅ complete | Final Integration Reviewer | PASS — every finding fixed or in KNOWN LIMITATIONS |
 | 12 | Docs, git, deploy readiness | DevOps / Deployment Engineer | ✅ complete | Final Integration Reviewer | PASS — `wrangler deploy --dry-run` clean, four docs written, history intact |
+| 13 | Architecture conformance sweep | Technical Director | ✅ complete | Final Integration Reviewer | PASS — 8 oversized files → 4, one argued exception; 216 unit tests |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -639,6 +640,106 @@ KNOWN LIMITATIONS with a one-line reason).
 
 ---
 
+## PHASE 13 — ARCHITECTURE CONFORMANCE SWEEP
+
+**Driving role:** Technical Director · **Auditor:** Final Integration Reviewer
+
+A late pass against the brief's architecture constraints specifically, rather than
+against behaviour. Behaviour had been audited to death; the *stated shape* of the
+codebase had not been checked since Phase 1.
+
+### The ~350-line ceiling
+
+Eight files were over. Five badly.
+
+| File | Before | After | Split into |
+|---|---|---|---|
+| `server/src/RoomDO.ts` | 694 | **638** | `roomUpkeep`, `roomWire`, `roomHttp` |
+| `scripts/screenshots.ts` | 611 | 127 | `shotDriver`, `shotScenes` |
+| `scripts/botHarness.ts` | 549 | 350 | `invariants` |
+| `web/src/screens/PlayerView.tsx` | 522 | 301 | `playerParts` |
+| `server/src/views.ts` | 516 | 298 | `viewParts`, `privateView` |
+| `web/src/screens/GroupView.tsx` | 394 | 394 | left alone |
+| `web/src/components/kit.tsx` | 367 | 367 | left alone |
+| `server/src/match.ts` | 356 | 356 | left alone |
+
+The bottom three are inside the "~" and splitting them would cost more than it buys:
+`GroupView` is one switch whose arms share six locals, so extracting an arm means
+threading a props bag that is longer than the arm.
+
+`views.ts` is the one where the split improved the *claim* rather than just the count.
+Its header says two redaction rules are enforced "here and nowhere else". Moving the
+non-redacting projections out (deadlines, leaderboard, roles) and giving the private
+payload its own named module leaves that file holding only the boundary it advertises.
+It re-exports both, so not one call site changed.
+
+### Why `RoomDO` stops at 638
+
+This is a deliberate exception, not an oversight, and it is the one place in this build
+where I did not fix a finding to the letter.
+
+Three concerns came out cleanly — the upkeep rules, the wire assembly, the HTTP
+response shapes. What is left is the Durable Object's own capability surface, and it
+does not decompose without damage. `handlerContext` alone binds eight closures, every
+one of which reaches back into the instance (`runTransitions`, `socketsFor`, `send`,
+`ctx.waitUntil`, `drawings`). Extracting it means passing all of that back in as an
+interface with a dozen members — which is the class, spelled twice.
+
+I did consider one more split that is genuinely principled: a `SocketHub` owning `ctx`
+and the socket set, taking roughly 150 lines of "who is connected" out of the file so
+`RoomDO` holds only "what phase are we in". That is better code. It also touches every
+send and close path in the system, at the end of a build, to land at ~490 — still over.
+The trade was not worth it, so it is in FUTURE rather than in this commit.
+
+The rule exists for reviewability. A Durable Object is one unit of consistency, and a
+reviewer asking "can this room reach a state where nothing advances?" is better served
+by every mutation path being visible in one file than by four files and an interface.
+
+### What the split actually bought
+
+`sweepGrace` and `migrateHost` were private methods. The only way to test *does an
+abandoned room fall back to the lobby?* was to run a real match against a real worker
+and wait ninety seconds — which is exactly how both of their bugs were originally
+found, slowly, in Phase 8. They now take a `RoomState` and a two-method port, and have
+nine unit tests.
+
+Those tests were then mutation-tested, because a test that cannot fail is decoration:
+
+| Mutant | Caught |
+|---|---|
+| Host migration leaves `hostMissingSince` in the past (the real I-series bug) | ✅ 1 failure |
+| Room never falls back to the lobby when it empties | ✅ 1 failure |
+| `<` → `<=` on the grace boundary | ✅ 3 failures |
+
+### Other conformance findings
+
+- **Two single-source-of-truth breaks.** `RoomDO` hardcoded `90_000` two lines from an
+  import of the file that exports `DISCONNECT_GRACE_MS`. The guess input hardcoded
+  `100` in three places while the server validates against `DRAWING_GUESS_MAX_LENGTH`.
+  Both are the exact failure the "zero magic numbers" rule exists to stop: the constant
+  moves, one side follows, and the client starts truncating at a different length than
+  the server rejects at. Both now import.
+- **The font licence was linked, not shipped.** OFL 1.1 §2 requires the copyright
+  notice and the full licence text to travel *with* the font files; the vendored
+  `LICENSE.md` summarised them and linked out. Both are now reproduced in full.
+- **The `dangerouslySetInnerHTML` ban was verified, not assumed.** A configured lint
+  rule that never fires is worth nothing, so both selectors were probed with real
+  violations: the JSX attribute form and the `createElement` object-property bypass.
+  Both error.
+- **`/shared` purity re-checked.** Every apparent DOM or Workers reference in `shared/`
+  is inside a comment. No upward imports into `server/` or `web/`.
+- **No stray assets.** Zero audio files (35 synthesised events), one hand-written
+  favicon SVG, no bundled art, no sourcemaps shipped, no `console.*` in client code.
+
+### Verification after the refactor
+
+Pure code motion is still a change to the most critical file in the system, so the
+whole suite was re-run against the refactored tree rather than trusted: 216 unit tests,
+matrix 16/16, fault suite 22/22, and a live browser sweep to confirm the split
+screenshot harness still drives a real room and still asserts on the live DOM.
+
+---
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -717,6 +818,11 @@ what this is.
 | I35 | S3 | Two crude decoration CSS classes were never used by any component. | Removed; the censor-bar motif now styles the redacted locked story sections. | ✅ fixed |
 | I36 | S3 | The finale's perfect-bonus denominator can drift if a grace window lapses between the guess and the resolve. | Worst case is a missed bonus, never a crash. | 📄 documented |
 | I37 | S3 | UI interaction coverage is narrower than protocol coverage; two of three S1 bugs were UI-only. | Browser sweep covers every screen and the full arc, not every interaction. | 📄 documented |
+| I38 | S3 | `RoomDO` hardcoded `90_000` two lines below an import from the module that exports `DISCONNECT_GRACE_MS`. Tuning the constant would have moved the grace window everywhere except the sweep that enforces it. | Imports the constant. | ✅ fixed |
+| I39 | S3 | The guess input hardcoded `100` in three places while the server validates against `DRAWING_GUESS_MAX_LENGTH`. A change to one side would have had the client truncating at a different length than the server rejects at. | Imports the constant. | ✅ fixed |
+| I40 | S4 | The vendored font `LICENSE.md` summarised the OFL and linked to it. OFL 1.1 §2 requires the copyright notice and full licence text to ship *with* the files. | Both reproduced in full. | ✅ fixed |
+| I41 | S3 | Eight source files were over the brief's ~350-line ceiling, five of them badly. | Split to four, three of which are inside the "~". `RoomDO` is an argued exception — see Phase 13. | ✅ fixed |
+| I42 | S4 | `RoomDO` remains at 638 lines. A `SocketHub` owning `ctx` and the socket set would take ~150 more out of it. | Real improvement, wrong moment: it touches every send and close path and still would not reach 350. In FUTURE. | 📄 documented |
 
 Severity scale: **S1** ship-blocker · **S2** major · **S3** minor · **S4** polish
 
@@ -757,6 +863,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 |---|---|---|
 | Audio Designer | A procedural music loop for the lobby and the final story. | **Rejected.** The brief says "do not spend session time on a soundtrack". The mixer keeps its music channel; it is silent, and README says so. |
 | Content Designer | A fifth and sixth classic story to widen the rotation. | **Rejected.** "Engine quality > content volume." Seven stories is enough to prove repeat matches without repeats; the linter and the two disguise lints matter more than the eighth story. |
+| Technical Director | A `SocketHub` class to take socket bookkeeping out of `RoomDO`. | **Deferred, not rejected.** It is better code. It also rewrites every send and close path in the system after the suite had gone green, to land at ~490 lines — still over the ceiling it was meant to satisfy. Wrong change for the last hour of a build. → FUTURE. |
 
 ---
 
@@ -768,7 +875,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
-| ✅ | All unit + integration tests pass, including the finale balance test | **207 passing**; finale lands 29.3–33.3% across 3–10 players |
+| ✅ | All unit + integration tests pass, including the finale balance test | **216 passing**; finale lands 29.3–33.3% across 3–10 players |
 | ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
 | ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
 | ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |
@@ -780,3 +887,6 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | All four docs written and accurate | README · GAME_DESIGN · CONTENT_GUIDE · BUILD_LOG |
 | ✅ | Git tree clean, history intact, meaningful commits | Conventional commits, one per phase gate plus audit fixes |
 | ✅ | Adversarial review complete with findings fixed or documented | Phase 11; everything unfixed is in README → KNOWN LIMITATIONS |
+| ✅ | Architecture constraints hold: `/shared` pure, ~350-line ceiling, zero magic numbers | Phase 13. Purity re-verified; 8 oversized files → 4, with `RoomDO` an argued exception stated in README; two duplicated constants fixed |
+| ✅ | Originality and licensing clean | Zero audio files, one hand-written favicon, no bundled art, OFL text and copyright notices shipped with both fonts |
+| ✅ | Security guards verified rather than assumed | The `dangerouslySetInnerHTML` ban probed with real violations in both the JSX and `createElement` forms; both error |

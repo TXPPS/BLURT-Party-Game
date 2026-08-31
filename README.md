@@ -136,8 +136,11 @@ per-value storage limit, so they are chunked into their own keys.
 /content     stories, name pools, and the zod schema that validates them
 /server      wrangler.toml · worker.ts (routing) · RoomDO.ts (the room)
              dispatch.ts · handlers.ts · validate.ts · phases/*
+             views.ts (the redaction boundary) · viewParts · privateView
+             roomUpkeep (grace + host migration) · roomWire · roomHttp
 /web         React client: screens, components, avatars, audio, net, styles
-/scripts     simulate.ts (bot harness) · faults.ts · contentLint.ts · screenshots.ts
+/scripts     simulate.ts (runner) · botHarness · invariants · faults
+             screenshots · shotDriver · shotScenes · contentLint
 /tests       unit and integration specs
 ```
 
@@ -151,7 +154,13 @@ Rules the codebase actually holds to:
   a phase transition. It renders the view the server sent and sends intents back.
   This is structural, not aspirational: the reveal and vote payloads are built from a
   type that *has no author field*, so leaking authorship early is a compile error.
-- **No file over ~350 lines**, no god component, no god manager class.
+- **No file over ~350 lines**, no god component, no god manager class — with one
+  stated exception. `server/src/RoomDO.ts` is 638. Three concerns were lifted out of
+  it (`roomUpkeep`, `roomWire`, `roomHttp`); what remains is the Durable Object's own
+  capability surface, which does not decompose without passing the whole class back
+  in as an interface. A room is one unit of consistency, and every mutation path being
+  visible in one file is worth more to a reviewer than the line count. Reasoning and
+  the rejected alternative are in BUILD_LOG → Phase 13.
 - **Zero magic numbers.** If a number matters it is named in `shared/constants.ts` or
   `shared/scoring.ts` with a comment explaining why it has that value.
 
@@ -258,7 +267,7 @@ submitting at once produce one broadcast, not ten.
 
 Three layers, and the interesting one is the middle.
 
-**Unit tests** (`pnpm test`) — 207 specs over the pure modules: room-code generation
+**Unit tests** (`pnpm test`) — 216 specs over the pure modules: room-code generation
 and uniqueness, name generation and the adversarial blocklist filter, matchmaking
 fairness over 100-round runs at every player count, scoring maths, tie handling, story
 assembly and progressive unlock, content schema validation, the two disguise lints,
@@ -271,6 +280,14 @@ Including **`tests/scoring.balance.test.ts`**, which Monte-Carlo simulates 1,000
 matches at 4, 6 and 8 players through the *real* scoring and matchmaking functions and
 holds the drawing finale to 25–35% of all points awarded. It is what the finale
 constants were tuned against — see GAME_DESIGN.md §5.
+
+And **`tests/roomUpkeep.test.ts`**, which covers the two rules that decide whether an
+abandoned room recovers or hangs: the disconnect-grace sweep and host migration. Both
+used to be private methods on the Durable Object, so the only way to exercise them was
+to run a real match and wait ninety seconds — which is how both of their bugs were
+originally found. The tests were mutation-tested (a past-deadline host migration, a
+removed lobby fallback, an off-by-one on the grace boundary); all three mutants fail
+them, so they are load-bearing rather than decorative.
 
 **Bot harness** (`pnpm simulate`) — real `ws` clients against a real `wrangler dev`,
 speaking the real protocol. No mocks, no in-process shortcuts: if the harness can
@@ -398,6 +415,17 @@ accounts · persistent profiles · cross-room matchmaking · a store or DLC · a
 content marketplace · AI-generated stories · voice chat · achievements · global
 leaderboards · spectators · native apps · a moderation portal · internationalisation ·
 analytics
+
+Wanted, and the first things worth doing next:
+
+- **Widen UI interaction coverage.** The bot harness exercises the protocol
+  exhaustively; the browser sweep covers every screen and the full match arc but not
+  every interaction on every screen. Two of this build's three worst bugs were UI-only,
+  so this is the highest-value gap.
+- **A `SocketHub` inside the room.** Socket bookkeeping — who is bound, who to send
+  to, who to sweep — is about 150 lines of `RoomDO` that would read better with its
+  own name and owner. Deliberately not attempted at the end of this build, since it
+  touches every send and close path.
 
 ---
 
