@@ -26,7 +26,8 @@
     "deploy": "pnpm build && wrangler deploy --config server/wrangler.toml",
     "screenshots": "tsx scripts/screenshots.ts",
     "verify": "pnpm lint:content && pnpm typecheck && pnpm lint && pnpm test",
-    "predev:server": "node -e \"require('fs').mkdirSync('web/dist',{recursive:true})\""
+    "predev:server": "node -e \"require('fs').mkdirSync('web/dist',{recursive:true})\"",
+    "avatars": "tsx scripts/avatarSheet.ts"
   },
   "dependencies": {
     "zod": "^4.5.4"

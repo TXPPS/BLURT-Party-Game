@@ -25,26 +25,37 @@ function Frame({ children }: { children: React.ReactNode }): React.JSX.Element {
 
 const Raccoon = (): React.JSX.Element => (
   <Frame>
-    <path d="M12 22 8 10l12 5" fill="#9AA5B1" />
-    <path d="M52 22 56 10l-12 5" fill="#9AA5B1" />
-    <ellipse cx="32" cy="34" rx="21" ry="19" fill="#B8C2CC" />
-    <path d="M13 30c8-5 30-5 38 0-2 7-7 10-19 10s-17-3-19-10z" fill={INK} stroke="none" />
-    <circle cx="24" cy="32" r="3.4" fill="#FFFBF2" stroke="none" />
-    <circle cx="40" cy="32" r="3.4" fill="#FFFBF2" stroke="none" />
-    <path d="M32 41c-2 0-3 1.6-3 3h6c0-1.4-1-3-3-3z" fill={INK} stroke="none" />
-    <path d="M27 47c3 2 7 2 10 0" />
+    {/* Big triangular ears set wide: the silhouette has to say "raccoon" before any
+        detail resolves. */}
+    <path d="M9 26 6 6l17 9z" fill="#8E9AA6" />
+    <path d="M55 26 58 6 41 15z" fill="#8E9AA6" />
+    <path d="M32 13c13 0 21 9 21 20 0 12-9 20-21 20s-21-8-21-20c0-11 8-20 21-20z" fill="#C3CCD4" />
+    {/* The mask runs the full width of the face and is the darkest thing here, so it
+        survives being 12 pixels tall. */}
+    <path d="M11 31c6-4 12-6 21-6s15 2 21 6c-1 6-4 10-8 11-4-1-7-3-13-3s-9 2-13 3c-4-1-7-5-8-11z" fill={INK} stroke="none" />
+    <circle cx="23" cy="34" r="4" fill="#FFFBF2" stroke="none" />
+    <circle cx="41" cy="34" r="4" fill="#FFFBF2" stroke="none" />
+    <circle cx="23" cy="34" r="1.7" fill={INK} stroke="none" />
+    <circle cx="41" cy="34" r="1.7" fill={INK} stroke="none" />
+    <path d="M32 43a3.4 3.4 0 0 0-3.4 3.4h6.8A3.4 3.4 0 0 0 32 43z" fill={INK} stroke="none" />
+    <path d="M26 51c4 3 8 3 12 0" />
   </Frame>
 );
 
 const Possum = (): React.JSX.Element => (
   <Frame>
-    <path d="M14 20 10 9l11 6" fill="#E9C9D6" />
-    <path d="M50 20 54 9l-11 6" fill="#E9C9D6" />
-    <path d="M12 30c0-10 9-16 20-16s20 6 20 16c0 8-6 12-11 14l-9 8-9-8c-5-2-11-6-11-14z" fill="#D8DEE4" />
-    <circle cx="24" cy="30" r="2.6" fill={INK} stroke="none" />
-    <circle cx="38" cy="30" r="2.6" fill={INK} stroke="none" />
-    <circle cx="32" cy="44" r="3.4" fill="#E9788E" />
-    <path d="M26 38h12" strokeWidth={2.4} />
+    {/* Bare prehensile tail curling out of the silhouette — reads even as a blob. */}
+    <path d="M50 44c9 2 10 12 2 15" stroke="#E9C9D6" strokeWidth={5} />
+    <path d="M13 22 9 8l13 7z" fill="#F0DCE4" />
+    <path d="M51 22 55 8 42 15z" fill="#F0DCE4" />
+    <path d="M32 12c11 0 18 8 18 18 0 6-2 10-5 13l-13 12-13-12c-3-3-5-7-5-13 0-10 7-18 18-18z" fill="#E4E9ED" />
+    {/* Long pointed snout, the possum's actual signature. */}
+    <path d="M32 34c4 0 7 3 7 7 0 5-4 9-7 12-3-3-7-7-7-12 0-4 3-7 7-7z" fill="#F0DCE4" />
+    <circle cx="24" cy="29" r="3" fill={INK} stroke="none" />
+    <circle cx="40" cy="29" r="3" fill={INK} stroke="none" />
+    <circle cx="32" cy="42" r="2.2" fill={INK} stroke="none" />
+    {/* Two teeth. Small, but they are what make it funny rather than generic. */}
+    <path d="M29 47l1.6 4M35 47l-1.6 4" stroke="#FFFBF2" strokeWidth={2.4} />
   </Frame>
 );
 
