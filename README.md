@@ -61,8 +61,9 @@ Requires **Node ≥ 20**. `pnpm` is the package manager of record; `npm` works t
    away.
 4. **The final story.** The whole thing, read out line by line.
 5. **The drawing finale.** Prompts are pulled out of the story the room just built,
-   so somebody is always drawing something one of *them* wrote. Everyone else writes
-   a fake prompt; then the room votes on which was real.
+   so somebody is always drawing something one of *them* wrote. Everybody picked
+   draws **at the same time**, in one window; each picture is then shown in turn,
+   everyone else writes a fake prompt, and the room votes on which was real.
 6. **Results.** Leaderboard, awards derived from real tracked stats, and a highlight
    reel. Then PLAY AGAIN, with a story they have not heard.
 
@@ -286,6 +287,11 @@ There is one refinement on top of that: if a disconnect leaves a phase blocked o
 *single* absent person — an artist whose phone died, say — the deadline is shortened
 to 22 seconds. The 90-second grace window is about keeping a seat; it is far too long
 to make nine other people watch a canvas nobody is drawing on.
+
+During the drawing phase that shortening waits until *every* artist still owing a
+picture has gone. Artists draw simultaneously, so one person dropping must not take
+time off the people still mid-picture — an artist who leaves simply stops being
+counted, and the phase ends as soon as the remaining artists are done.
 
 **Host disconnect.** The room is preserved. Every screen shows a countdown. After 60
 seconds authority migrates to the longest-connected active player and the room is told

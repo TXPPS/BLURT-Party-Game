@@ -24,7 +24,7 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 3. Two answers go head to head. Vote for the better one. You can't vote for your own.
 4. Winning answers get quietly filed into a story nobody has seen yet.
 5. At the end the story is read out with your answers wedged into it. That's the joke.
-6. Then a drawing round — a few of you draw, everyone else guesses — and then scores.
+6. Then a drawing round — several draw at once, the rest guess — then scores. Ten minutes.
 
 ---
 
@@ -41,34 +41,41 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 
 ---
 
-## Watch the clock on the drawing round
+## How long a session actually runs
 
-The single biggest pacing risk, and the main thing this session is for.
+Everybody selected to draw draws **at the same time**, in one window, so the finale
+costs one drawing timer regardless of how many artists there are. The showcase after
+it — guess, vote, results — still runs once per picture, because that half is the
+show and the room is meant to watch it together.
 
-The finale runs artists **one after another**: up to four in a room of five or fewer,
-up to three from six players up, and never more than the story has drawing prompts for
-(a 4-player test run produced three, not four). Each artist gets `answerMs × 2.5` to
-draw — **3 minutes 7 seconds** at NORMAL.
+Worst case for a 3-round match with the finale, if every single phase ran to its
+buzzer and nobody ever submitted early:
 
-At NORMAL timing, if every phase ran to its buzzer, a 3-round match with the finale is:
+| Preset | Worst case | Of which is the finale | Drawing window |
+|---|---|---|---|
+| **FAST** | 9.7 min | 4.1 min (42%) | 60s |
+| **NORMAL** | 13.2 min | 5.6 min (43%) | 90s |
+| **RELAXED** | 18.2 min | 7.6 min (42%) | 120s |
 
-| Room | Worst case | Of which is drawing time |
-|---|---|---|
-| 3 artists | 21.2 min | 9.4 min (44%) |
-| 4 artists | 25.8 min | 12.5 min (49%) |
+These are identical at 4 and 10 players — the finale runs the same three drawings
+either way, so room size changes the length of the standard rounds, not the finale.
+Real sessions land well under these numbers, because every phase ends as soon as
+everyone has acted.
 
-Each drawing phase ends the moment that artist submits, so in practice it is far
-shorter. But the artists go **one at a time**, so a single slow person leaves everybody
-else watching a progress bar — and a small room gets *more* artists, not fewer.
+For reference, this used to be the top pacing risk in this document: artists drew one
+at a time, so NORMAL had a 21.3-minute worst case with **64%** of it drawing. It is now
+13.2 minutes at 42%.
 
-If the room stalls there, the levers in `shared/constants.ts` are
-`DRAWING_TIME_MULTIPLIER` (currently `2.5×` the answer timer) and `DRAWING_MAX_ARTISTS`
-(currently 4). Or just run the session on **FAST**, which is what every automated run
-in this build uses.
+Levers, if you still want it shorter: `DRAWING_ACTIVE_MS` in `shared/constants.ts` sets
+the drawing window per preset, and `DRAWING_MAX_ARTISTS` (currently 4) caps how many
+pictures the showcase has to get through. Or run the session on **FAST**, which is what
+every automated run in this build uses.
 
-Also worth knowing: "Budget fifteen minutes" in the read-aloud above is a realistic
-expectation, not the worst case. If your session runs to 25 minutes, the table above
-is why.
+**What to actually watch now.** The drawing phase ends when the last artist submits, so
+the thing worth timing is the *gap* between the first drawing landing and the last. The
+holding screen shows a live "3 of 4 handed in" tally — watch whether the people who
+finished early get bored before the stragglers are done. If that gap is where the
+energy drops, the fix is a shorter window, not a different structure.
 
 ---
 
@@ -127,7 +134,9 @@ Anyone over 45 seconds: what were they looking at? _____________________________
 - [ ] First prompt — did they understand it was a question? _______________
 - [ ] Voting — did anyone try to vote for themselves? _____________________
 - [ ] The story reveal — did they get that their answer was in it? ________
-- [ ] Drawing — did the artist know what to draw? _________________________
+- [ ] Drawing — did the artists know what to draw? ________________________
+- [ ] The holding screen — did non-artists understand they were waiting, not
+      stuck? Did the "N of M handed in" tally read clearly? ________________
 - [ ] Guessing — did they understand they were writing a fake prompt? _____
 - [ ] Final results / awards → _____________________________________________
 
@@ -144,7 +153,7 @@ Anyone over 45 seconds: what were they looking at? _____________________________
 
 | Phase | How long it felt | What people did while waiting |
 |---|---|---|
-| | | |
+| DRAWING_ACTIVE (gap between first and last drawing in) | | |
 | | | |
 | | | |
 

@@ -255,9 +255,23 @@ object, place, possession) first, falling through to anything filled if a short 
 did not produce enough. An unillustratable prompt is funnier than a finale that
 cannot start.
 
-1. **DRAWING_ACTIVE** — the artist draws privately. Eight colours, three brush sizes,
-   undo, clear. Deliberately not an editor: bad drawings are the joke, and every extra
-   tool makes them less bad.
+The finale splits into a **drawing half** and a **showcase half**, and they are paced
+differently on purpose.
+
+1. **DRAWING_ACTIVE** — *every* artist draws at the same time, privately, on their own
+   device, inside one shared window. Eight colours, three brush sizes, undo, clear.
+   Deliberately not an editor: bad drawings are the joke, and every extra tool makes
+   them less bad. Everybody who is not drawing watches a live count of how many
+   drawings are in and who is still working.
+
+   This phase used to run once per artist. Drawing is solitary work — nobody watching
+   gains anything from watching it — so running it in series meant a room of six spent
+   three drawing timers looking at a progress bar. Simultaneous drawing costs one
+   timer no matter how many artists there are.
+
+Then, **once per drawing, in sequence**, because this half *is* the show and the whole
+room is meant to be looking at the same picture:
+
 2. **DRAWING_GUESS** — everyone else sees the drawing and writes what they think the
    prompt was. These become the decoys.
 3. **DRAWING_VOTE** — the real prompt, shuffled in with every decoy. Nobody may pick
@@ -267,6 +281,11 @@ cannot start.
 Every step degrades rather than stalls: an artist who never submits still gets their
 drawing shown (blank, which is funnier), a guesser who times out gets a house decoy,
 and a vote nobody casts still resolves and scores zero.
+
+Because the artists share one window, an artist who leaves mid-phase stops being
+counted rather than holding the room — but the deadline is only pulled in when *every*
+artist still owing a drawing has disconnected. One person dropping must never take
+time away from the people still mid-picture.
 
 ---
 
@@ -279,7 +298,10 @@ and a vote nobody casts still resolves and scores zero.
 | Timer | FAST 45/20s · NORMAL 75/30s · RELAXED 120/45s | Normal |
 | Drawing finale | on / off | on |
 
-Drawing gets 2.5× the answer timer. Every setting is re-validated and re-clamped
+The drawing window is its own setting — 60s on FAST, 90s on NORMAL, 120s on RELAXED —
+rather than a multiple of the answer timer. Answering is a sentence and drawing is a
+picture; there is no reason a room that wants longer to type also wants proportionally
+longer to draw. Every setting is re-validated and re-clamped
 server-side, so a hand-built socket message asking for 900 rounds gets 15.
 
 The host has no READY button — pressing START **is** their readiness.

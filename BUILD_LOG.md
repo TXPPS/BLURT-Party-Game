@@ -27,6 +27,7 @@ findings are **fixed**, not merely recorded.
 | 12 | Docs, git, deploy readiness | DevOps / Deployment Engineer | ✅ complete | Final Integration Reviewer | PASS — `wrangler deploy --dry-run` clean, four docs written, history intact |
 | 13 | Architecture conformance sweep | Technical Director | ✅ complete | Final Integration Reviewer | PASS — 8 oversized files → 4, one argued exception; 216 unit tests |
 | 14 | Deploy + playtest instrumentation | DevOps / Deployment Engineer | ⛔ blocked (deploy) · ✅ complete (instrumentation) | Executive Producer | BLOCKED — Cloudflare unreachable from this environment; pacing log and latency harness shipped and verified locally |
+| 15 | Simultaneous drawing finale | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — worst case 21.3m → 13.2m at NORMAL; matrix 16/16, faults 22/22 |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -811,11 +812,86 @@ shortened by faster players.
 The number worth acting on is the other end. If every phase ran to its buzzer the match
 is **21.2 minutes**, and `DRAWING_ACTIVE` alone is **9.4 of them** — three artists at
 187.5s each, sequentially. It ends early when an artist submits, so it will usually be
-far shorter, but a single slow artist parks everyone else on a progress bar. That is
-now the first thing PLAYTEST.md tells the host to watch, with the lever named
-(`DRAWING_TIME_MULTIPLIER`, currently 2.5× the answer timer) — flagged, deliberately
-not changed, because it is a tuned design constant and this task was "deploy, verify,
-instrument", not retune.
+far shorter, but a single slow artist parks everyone else on a progress bar. Flagged
+here and deliberately not changed at the time, because it was a tuned design constant
+and that task was "deploy, verify, instrument", not retune.
+
+> **Resolved in Phase 15.** The measurement was the argument: drawing is now
+> simultaneous and the NORMAL worst case is 13.2 minutes at 42% drawing.
+
+---
+
+## PHASE 15 — SIMULTANEOUS DRAWING FINALE
+
+**Driving role:** Gameplay Systems Engineer · **Auditor:** QA Engineer
+
+The pacing problem Phase 14 measured, fixed. `DRAWING_SETUP` and `DRAWING_ACTIVE` now
+happen once per match with every artist drawing at the same time; `DRAWING_GUESS`,
+`DRAWING_VOTE` and `DRAWING_RESULTS` still run once per picture, because that half is
+the show and the room is supposed to watch it together.
+
+### A note on the spec
+
+The request cited GAME_DESIGN §7 as already calling for simultaneous drawing. It did
+not — it said "*the artist* draws privately" and listed a four-step cycle, which reads
+as, and was built as, sequential. So this was a design change rather than a divergence
+being corrected. Worth doing on the measurements alone, and §7 has been rewritten to
+describe the two halves and why they are paced differently.
+
+### Old vs new, worst case (3 rounds, finale on, every phase to its buzzer)
+
+| Preset | Old | New | Saved | Old drawing share | New |
+|---|---|---|---|---|---|
+| FAST | 14.5 min | **9.7 min** | 4.8 min | 61% | 42% |
+| NORMAL | 21.3 min | **13.2 min** | 8.1 min | 64% | 42% |
+| RELAXED | 31.4 min | **18.2 min** | 13.2 min | 66% | 42% |
+
+Identical at 4 and 10 players: the finale runs the same three drawings either way, so
+room size moves the standard rounds, not the finale.
+
+### What "one current drawing" was hiding
+
+Everything that assumed a single artist had to be found and changed, and the type
+system found most of it — reshaping `DrawingActiveView` produced a list of every client
+site that read `artistName` or `drawingIndex`:
+
+- submissions match on the **submitting artist**, not the showcase pointer, so two
+  artists finishing at once cannot write to the same record
+- each artist's brief is resolved **per player** in the private payload; there is no
+  "current" prompt while everybody is drawing
+- `roleFor` asks *am I an artist*, not *is it my turn*
+- `onPresenceChange` only pulls the deadline in when **no** outstanding artist is still
+  connected. Sequentially, one artist dropping meant nobody was drawing and cutting the
+  phase short was right; simultaneously, that same rule would have stolen time from
+  everybody still mid-picture. This is the subtlest part of the change.
+
+### The constant
+
+`DRAWING_ACTIVE_MS` (FAST 60s / NORMAL 90s / RELAXED 120s) replaces `answerMs × 2.5`.
+Answering is a sentence and drawing is a picture; there was no reason a room that wants
+longer to type also wants proportionally longer to draw, and the multiplier scaled
+worst at the RELAXED end, where it bought each artist five minutes.
+
+Audit of the other derived budgets, as asked: **there are none.** `drawMs` was the only
+one. `answerMs` drives `ROUND_PROMPT` directly, and `voteMs` is its own preset field
+driving `ROUND_VOTE`, `DRAWING_GUESS` and `DRAWING_VOTE`. Nothing else was touched.
+
+### Verification
+
+The FSM test that asserted `DRAWING_RESULTS → DRAWING_SETUP` was the one thing that
+failed on the first run — exactly the assumption that needed updating. It now asserts
+the showcase loop and that returning to either `SETUP` or `ACTIVE` is illegal, since
+either would mean a second drawing window.
+
+A harness invariant counts `DRAWING_SETUP` and `DRAWING_ACTIVE` entries per bot and
+fails above one. Mutation-tested by reverting to sequential drawing: it fires on every
+bot that saw the finale, so it is load-bearing rather than decorative.
+
+The screenshot driver also assumed one artist — it scribbled on the first canvas it
+found and then waited for a phase that could not arrive until all of them submitted.
+It now draws on every live canvas, and a new `11b-drawing-hold` scene photographs the
+non-artist holding screen through a `waiter` selector that finds a device *without* a
+canvas.
 
 ---
 
