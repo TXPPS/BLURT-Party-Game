@@ -24,6 +24,8 @@ interface Options {
   matrix: boolean;
   faults: boolean;
   quiet: boolean;
+  /** Substring filter, so a single fault case can be re-run after a fix. */
+  only: string | null;
 }
 
 function parseArgs(argv: readonly string[]): Options {
@@ -45,6 +47,7 @@ function parseArgs(argv: readonly string[]): Options {
     matrix: has('matrix'),
     faults: has('faults'),
     quiet: has('quiet'),
+    only: argv.includes('--only') ? get('only', '') : null,
   };
 }
 
@@ -251,6 +254,15 @@ async function main(): Promise<void> {
         label: `${options.players}p ${options.mode} ${options.drawing ? 'finale' : 'no-finale'} ${options.rounds}r`,
       },
     ];
+  }
+
+  if (options.only !== null) {
+    const needle = options.only.toLowerCase();
+    configs = configs.filter((c) => c.label.toLowerCase().includes(needle));
+    if (configs.length === 0) {
+      console.error(`✗ no case matches --only "${options.only}"`);
+      process.exit(2);
+    }
   }
 
   const results: RunResult[] = [];

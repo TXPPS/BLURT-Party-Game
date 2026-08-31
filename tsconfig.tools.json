@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     // `scripts/screenshots.ts` evaluates callbacks inside the browser via Playwright,
     // so the tooling project needs DOM types even though it runs under Node.
     "types": ["node"],
@@ -10,6 +10,7 @@
   "include": [
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "web/src/brand.ts",
     "shared/**/*.ts",
     "content/**/*.ts",
     "vitest.config.ts"

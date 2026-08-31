@@ -179,11 +179,23 @@
   gap: var(--s-1);
 }
 
+/**
+ * Three across on a 320px phone, more as the screen grows.
+ *
+ * The floor has to account for the whole chain: 320 − page padding − card padding
+ * − two gaps leaves about 240px, so 76px is the largest floor that still fits three.
+ * A 92px floor looked reasonable and silently fell back to two columns, which made
+ * the avatar picker a third of a page longer than it needed to be.
+ */
 .roster--grid {
   display: grid;
-  /* Three across on a 320px phone, more as the screen grows. */
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
   gap: var(--s-2);
+}
+
+.roster--grid .btn {
+  padding-left: var(--s-1);
+  padding-right: var(--s-1);
 }
 
 @media (min-width: 600px) {

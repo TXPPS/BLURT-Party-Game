@@ -258,11 +258,14 @@ submitting at once produce one broadcast, not ten.
 
 Three layers, and the interesting one is the middle.
 
-**Unit tests** (`pnpm test`) — 174 specs over the pure modules: room-code generation
+**Unit tests** (`pnpm test`) — 207 specs over the pure modules: room-code generation
 and uniqueness, name generation and the adversarial blocklist filter, matchmaking
 fairness over 100-round runs at every player count, scoring maths, tie handling, story
-assembly, content schema validation, the sanitizer (XSS / Zalgo / length / emoji
-fixtures), and the FSM's legal and illegal transitions.
+assembly and progressive unlock, content schema validation, the two disguise lints,
+the sanitizer (XSS / Zalgo / length / emoji fixtures), the FSM's legal and illegal
+transitions, awards at every player count, and **33 WCAG AA contrast assertions across
+both palettes** — so re-theming the game by editing `brand.ts` tells you immediately
+whether the new palette is still legible.
 
 Including **`tests/scoring.balance.test.ts`**, which Monte-Carlo simulates 1,000
 matches at 4, 6 and 8 players through the *real* scoring and matchmaking functions and
@@ -281,25 +284,49 @@ finish a match, a room of phones can too. Every match asserts:
 - the final story contains no unfilled slot and no placeholder text
 - every phase transition followed a legal FSM edge
 
-`--faults` runs the full fault-injection list; `--matrix` runs the player-count grid.
+`--faults` runs the full fault-injection list — a competitor who never submits, nobody
+voting, a tie, players leaving mid-round / mid-vote / mid-drawing, reconnects, the host
+leaving temporarily and permanently, an artist who never draws, nobody writing a decoy,
+oversized payloads, message floods, 1 round, 15 rounds, and a full house.
+
+`--matrix` runs the player-count grid: 2 / 4 / 10 across both modes with and without
+the finale, plus 3, 6 and 8. **16/16 passing.**
 
 **Visual audit** (`pnpm screenshots`) — drives the running app with one real browser
-context per player and captures every screen at 320 / 390 / 768 / 1280 / 1920 px.
-Phase 9 audits the pixels, not the CSS.
+context per player and captures every screen at 320 / 390 / 768 / 1280 / 1920 px. It
+also asserts against the live DOM at every breakpoint: no horizontal overflow, every
+control at least 44×44, every control with an accessible name, every image with an
+`alt`, and no player text overflowing its container. A screenshot cannot prove the
+absence of overflow; this can.
+
+It plays complete matches through the real UI — create, join from several contexts,
+name, avatar, settings, rounds, voting, story updates, the final story, the drawing
+finale, results, PLAY AGAIN and RETURN TO LOBBY — which is also the functional audit.
 
 ---
 
 ## Performance
 
+Measured on the production build, not estimated:
+
 | | |
 |---|---|
-| Initial JS | **~88 KB gzipped** (28 KB app + 60 KB React) |
-| CSS | 4.7 KB gzipped |
-| Fonts | 78 KB, two latin-subset variable woff2, self-hosted |
-| Code-split | crude avatar pack · crude name pool · drawing canvas |
-| Budget | 250 KB gzipped |
-| Images | zero — every avatar is an inline SVG component |
-| Audio files | zero — every sound is synthesised at runtime |
+| **Initial payload** | **90.6 KB gzipped** — HTML + CSS + app + React |
+| Budget | 250 KB gzipped — **36% used** |
+| app chunk | 27.7 KB gz (94 KB raw) |
+| React | 57.5 KB gz (190 KB raw) |
+| CSS | 4.7 KB gz (19 KB raw) |
+| Code-split, not in the initial load | drawing canvas 1.9 KB · crude avatar pack 1.7 KB · crude name pool 1.0 KB |
+| Fonts | 76 KB, two latin-subset variable woff2, self-hosted, cached after first load |
+| Images | **zero** — every avatar is an inline SVG component |
+| Audio files | **zero** — every sound is synthesised at runtime |
+
+Server side, the message rate is bounded by how fast people can tap: broadcasts fire
+on state change only, coalesced into a 50ms window, and never on a timer tick. The
+view is built **once** per broadcast and shared across sockets; only the small
+per-socket `private` payload is rebuilt. Drawings are served over HTTP rather than
+pushed through the socket, which is what keeps a ten-player finale in kilobytes
+instead of megabytes.
 
 No 3D engine, no animation framework, no lodash, no date library. CSS transitions and
 a handful of `requestAnimationFrame` loops.

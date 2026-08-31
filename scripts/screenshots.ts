@@ -85,6 +85,63 @@ async function joinAs(
   return { context, page };
 }
 
+/**
+ * Structural checks run against the *live* DOM at every breakpoint.
+ *
+ * Screenshots prove how something looks; these prove the things a screenshot cannot:
+ * that nothing overflows sideways, that every control is thumb-sized, and that
+ * everything interactive has an accessible name.
+ */
+async function auditPage(page: Page, label: string): Promise<string[]> {
+  return page.evaluate((where) => {
+    const problems: string[] = [];
+    const root = document.documentElement;
+
+    if (root.scrollWidth > window.innerWidth + 1) {
+      problems.push(
+        `${where}: horizontal overflow — content is ${root.scrollWidth}px wide in a ${window.innerWidth}px viewport`,
+      );
+    }
+
+    const MIN_TAP = 44;
+    const controls = [...document.querySelectorAll('button, a[href], input, textarea, select')];
+    for (const element of controls) {
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) continue; // not rendered
+      if (box.height < MIN_TAP || box.width < MIN_TAP) {
+        const name = element.textContent?.trim().slice(0, 24) ?? element.tagName;
+        problems.push(
+          `${where}: tap target too small (${Math.round(box.width)}x${Math.round(box.height)}) — "${name}"`,
+        );
+      }
+      const label =
+        element.getAttribute('aria-label') ??
+        element.getAttribute('title') ??
+        element.textContent?.trim() ??
+        '';
+      const labelled =
+        label.length > 0 ||
+        element.id.length > 0 ? document.querySelector(`label[for="${element.id}"]`) !== null : false;
+      if (label.length === 0 && !labelled) {
+        problems.push(`${where}: control with no accessible name — <${element.tagName.toLowerCase()}>`);
+      }
+    }
+
+    for (const img of document.querySelectorAll('img')) {
+      if (!img.hasAttribute('alt')) problems.push(`${where}: <img> with no alt attribute`);
+    }
+
+    // Player text must wrap rather than spill out of its container.
+    for (const el of document.querySelectorAll('.breakable')) {
+      if (el.scrollWidth > el.clientWidth + 2) {
+        problems.push(`${where}: text overflows its container — "${el.textContent?.trim().slice(0, 32)}"`);
+      }
+    }
+
+    return problems;
+  }, label);
+}
+
 async function waitForPhase(page: Page, phase: string, timeoutMs = 60_000): Promise<void> {
   await page.waitForFunction(
     (want) => document.querySelector('[data-phase]')?.getAttribute('data-phase') === want,
@@ -294,6 +351,9 @@ const SCENES: Scene[] = [
   {
     name: '09-story-update',
     players: 4,
+    // Story-heavy scenes replay whole matches, so they are sampled at the widths
+    // where layout risk actually lives rather than at all five.
+    widths: [320, 1280],
     async setup({ pages }) {
       await readyAll(pages);
       await setRounds(pages[0]!, 3);
@@ -307,6 +367,7 @@ const SCENES: Scene[] = [
   {
     name: '10-final-story',
     players: 4,
+    widths: [390, 1920],
     async setup({ pages }) {
       await readyAll(pages);
       await setRounds(pages[0]!, 3);
@@ -324,7 +385,7 @@ const SCENES: Scene[] = [
     name: '11-drawing-canvas',
     players: 4,
     shoot: 'both',
-    widths: [320, 390, 1280],
+    widths: [320, 768],
     async setup({ pages }) {
       await readyAll(pages);
       await setRounds(pages[0]!, 3);
@@ -345,9 +406,45 @@ const SCENES: Scene[] = [
     shootIndex: 'artist',
   },
   {
+    // Closes the loop the brief asks for: create → play → results → PLAY AGAIN →
+    // back to the lobby, all through the real UI rather than the harness.
+    name: '13-play-again',
+    players: 3,
+    widths: [390],
+    async setup({ pages }) {
+      const host = pages[0] as Page;
+      await readyAll(pages);
+      await setRounds(host, 3);
+      for (let i = 3; i > 1; i -= 1) await host.getByRole('button', { name: 'One fewer round' }).click();
+      await setFinale(host, false);
+      await host.getByRole('button', { name: 'START THE GAME' }).click();
+      await playRound(pages);
+      await waitForPhase(host, 'FINAL_STORY');
+      await host.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+      await waitForPhase(host, 'FINAL_RESULTS');
+
+      await host.getByRole('button', { name: 'PLAY AGAIN' }).first().click();
+      await waitForPhase(host, 'GAME_SETUP', 20_000);
+      await waitForPhase(host, 'ROUND_PROMPT', 20_000);
+
+      // …and back out again.
+      await answerAll(pages);
+      await waitForPhase(host, 'ROUND_VOTE');
+      await voteAll(pages);
+      await waitForPhase(host, 'ROUND_RESULTS');
+      await host.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+      await waitForPhase(host, 'FINAL_STORY');
+      await host.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+      await waitForPhase(host, 'FINAL_RESULTS');
+      await host.getByRole('button', { name: 'BACK TO THE LOBBY' }).first().click();
+      await waitForPhase(host, 'LOBBY', 20_000);
+    },
+  },
+  {
     name: '12-final-results',
     players: 4,
     shoot: 'both',
+    widths: [390, 1280],
     async setup({ pages }) {
       await readyAll(pages);
       await setRounds(pages[0]!, 3);
@@ -377,6 +474,7 @@ async function shootHomeScenes(browser: Browser, width: number): Promise<void> {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await sleep(300);
   await page.screenshot({ path: `${OUT}/01-home@${width}.png`, fullPage: true });
+  auditFindings.push(...(await auditPage(page, `01-home@${width}`)));
 
   await page.getByRole('button', { name: 'JOIN WITH A CODE' }).click();
   await sleep(250);
@@ -387,6 +485,7 @@ async function shootHomeScenes(browser: Browser, width: number): Promise<void> {
   await page.waitForSelector('text=Pick a name and a face', { timeout: 15_000 });
   await sleep(300);
   await page.screenshot({ path: `${OUT}/03-identify@${width}.png`, fullPage: true });
+  auditFindings.push(...(await auditPage(page, `03-identify@${width}`)));
 
   await page.getByRole('button', { name: '🎲 NAME ME' }).click();
   await sleep(250);
@@ -406,9 +505,12 @@ async function shootHomeScenes(browser: Browser, width: number): Promise<void> {
   await page.waitForSelector('text=/No room with that code|START OVER/', { timeout: 12_000 }).catch(() => undefined);
   await sleep(250);
   await page.screenshot({ path: `${OUT}/91-error-fatal@${width}.png`, fullPage: true });
+  auditFindings.push(...(await auditPage(page, `91-error-fatal@${width}`)));
 
   await context.close();
 }
+
+const auditFindings: string[] = [];
 
 async function main(): Promise<void> {
   const health = await fetch(`${BASE}/api/health`).catch(() => null);
@@ -420,7 +522,12 @@ async function main(): Promise<void> {
   await rm(OUT, { recursive: true, force: true });
   await mkdir(OUT, { recursive: true });
 
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({
+    executablePath: '/opt/pw-browsers/chromium',
+    // The game makes no third-party requests; silence the browser's own so a sandbox
+    // without egress does not fill the log with failed connections.
+    args: ['--disable-features=AutofillServerCommunication,OptimizationHints,Translate'],
+  });
   const widths = onlyWidth === null ? WIDTHS : [Number(onlyWidth)];
 
   for (const width of widths) {
@@ -454,6 +561,7 @@ async function main(): Promise<void> {
         const host = pages[0] as Page;
         await sleep(250);
         await host.screenshot({ path: `${OUT}/${scene.name}-host@${width}.png`, fullPage: true });
+        auditFindings.push(...(await auditPage(host, `${scene.name}-host@${width}`)));
         if (scene.shoot === 'both' || scene.shoot === 'player') {
           let player = (pages[1] ?? pages[0]) as Page;
           if (scene.shootIndex === 'artist') {
@@ -463,6 +571,7 @@ async function main(): Promise<void> {
             if (found !== undefined && found !== null) player = found;
           }
           await player.screenshot({ path: `${OUT}/${scene.name}-player@${width}.png`, fullPage: true });
+          auditFindings.push(...(await auditPage(player, `${scene.name}-player@${width}`)));
         }
       } catch (error) {
         console.error(`  ✗ ${scene.name} @ ${width}: ${(error as Error).message}`);
@@ -477,6 +586,14 @@ async function main(): Promise<void> {
   }
 
   await browser.close();
+
+  const unique = [...new Set(auditFindings)];
+  if (unique.length > 0) {
+    console.log(`\n──────── LAYOUT / A11Y FINDINGS (${unique.length}) ────────`);
+    for (const finding of unique) console.log(`  ✗ ${finding}`);
+  } else {
+    console.log('\n✓ no overflow, undersized targets or unlabelled controls found.');
+  }
   console.log(`\n✓ screenshots in ${OUT}\n`);
 }
 

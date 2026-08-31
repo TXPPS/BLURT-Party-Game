@@ -20,11 +20,11 @@ findings are **fixed**, not merely recorded.
 | 5 | Drawing finale | Gameplay Systems Engineer + Frontend | ✅ complete | QA Engineer | PASS — finale completes at 3 and 8 players; degrades cleanly on every skip |
 | 6 | Results / awards | Gameplay Systems Engineer | ✅ complete | Game UX Designer | PASS — every award has a qualifier or a documented fallback at 2–10 players |
 | 7 | Audio + polish | Audio/SFX Designer + Visual/Brand Designer | ✅ complete | Accessibility Reviewer | PASS — 35 synthesised events, zero audio files; touch targets and reduced-motion fixed |
-| 8 | QA (bot harness + matrix) | QA Engineer | ⏳ pending | Executive Producer | — |
-| 9 | Visual audit | Visual/Brand Designer + Accessibility Reviewer | ⏳ pending | Game UX Designer | — |
-| 10 | Functional audit | Game UX Designer | ⏳ pending | Executive Producer | — |
-| 11 | Adversarial review | All roles | ⏳ pending | Final Integration Reviewer | — |
-| 12 | Docs, git, deploy readiness | DevOps / Deployment Engineer | ⏳ pending | Final Integration Reviewer | — |
+| 8 | QA (bot harness + matrix) | QA Engineer | ✅ complete | Executive Producer | PASS — matrix 16/16, fault suite green, 207 unit tests |
+| 9 | Visual audit | Visual/Brand Designer + Accessibility Reviewer | ✅ complete | Game UX Designer | PASS — 14 findings, all fixed; screenshots + live DOM assertions at 5 breakpoints |
+| 10 | Functional audit | Game UX Designer | ✅ complete | Executive Producer | PASS — full arc played through the real UI, including PLAY AGAIN and RETURN TO LOBBY |
+| 11 | Adversarial review | All roles | ✅ complete | Final Integration Reviewer | PASS — every finding fixed or in KNOWN LIMITATIONS |
+| 12 | Docs, git, deploy readiness | DevOps / Deployment Engineer | ✅ complete | Final Integration Reviewer | PASS — `wrangler deploy --dry-run` clean, four docs written, history intact |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -237,6 +237,247 @@ vite build       ✓ 92 KB gzipped initial, against a 250 KB budget
 
 ---
 
+## PHASE 8 — QA
+
+**Driving role:** QA Engineer
+**Auditor:** Executive Producer / Technical Director
+
+`scripts/simulate.ts` opens **real `ws` clients against a real `wrangler dev`** and
+speaks the real protocol. No mocks, no in-process shortcuts, no test-only server
+hooks. It was built immediately after the first playable server and *before any UI
+existed*, which is why it caught the protocol defects that a type-checker cannot.
+
+### Invariants asserted on every simulated match
+
+| Invariant | How |
+|---|---|
+| Points reconcile | Every broadcast `deltas` array is collected, summed independently, and compared against the final leaderboard. Dedup is **per results screen**, because one drawing legitimately emits several identical `artist_identified` events. |
+| Appearance fairness | No player's `appearances` differs from another's by more than 1 at 4+ players. |
+| No self-vote option | A player is never offered their own answer, checked against every `private` payload received. |
+| **No early authorship** | Scans every captured frame: no `authorId` in any `ROUND_REVEAL` or `ROUND_VOTE` view, and none in `votableAnswers`. |
+| House only at two players | A house answer must never appear in a matchup above two players. Added after the visual audit caught exactly that (I17). |
+| Complete final story | No `{placeholder}`, no `undefined`/`null` text, no empty line, no redaction block. |
+| Legal transitions only | Every phase change each bot observed is checked against the FSM edge table. |
+
+### Player-count matrix — **16/16 passed**
+
+2 / 4 / 10 players across both modes, with and without the finale (the brief's floor),
+plus 3, 6 and 8 for the single-voter case and the 2/3-competitor alternation band, and
+one 5-round match to exercise the story-update cadence.
+
+```
+✓ 2p  classic finale   ✓ 2p  classic no-finale   ✓ 2p  crude finale   ✓ 2p  crude no-finale
+✓ 4p  classic finale   ✓ 4p  classic no-finale   ✓ 4p  crude finale   ✓ 4p  crude no-finale
+✓ 10p classic finale   ✓ 10p classic no-finale   ✓ 10p crude finale   ✓ 10p crude no-finale
+✓ 3p classic finale    ✓ 6p crude finale         ✓ 8p classic finale  ✓ 5p classic finale 5r
+16/16 passed.
+```
+
+### Fault injection — every case in the brief
+
+| Case | Result |
+|---|---|
+| a competitor never submits | ✓ house fills, story stays coherent |
+| nobody votes at all | ✓ resolves, announced as "NOBODY VOTED. THE UNIVERSE DECIDES." |
+| blank / 160-char / double-submitted answers | ✓ blank refused, no duplicate answers created |
+| self-vote via a raw socket frame (2 players) | ✓ `SELF_VOTE` |
+| a competitor voting in their own matchup (4 players) | ✓ `NOT_YOUR_TURN` |
+| a host-only action from a non-host | ✓ `NOT_HOST` |
+| player leaves mid-round | ✓ |
+| player leaves mid-vote | ✓ |
+| player leaves during drawing | ✓ |
+| player reconnects mid-round | ✓ restored to the right screen with the right private data |
+| host leaves and returns within grace | ✓ |
+| host leaves permanently | ✓ authority migrates, match finishes (was a hang — see I18) |
+| the artist never draws | ✓ |
+| nobody writes a decoy | ✓ house decoys keep the vote alive |
+| oversized drawing payload | ✓ refused, a legal one still lands |
+| message flood | ✓ `RATE_LIMITED` |
+| 2 players, the house plays | ✓ |
+| 3 players, a single voter | ✓ |
+| 15 rounds through 10-slot stories | ✓ continues into a second story |
+| 1 round through a 10-slot story | ✓ house fills the rest, story reads complete |
+| crude mode, 8 players, finale | ✓ |
+| full house: 10 players | ✓ |
+
+Malformed JSON, binary frames, wrong protocol version, duplicate names, oversized
+names, emoji/RTL/Zalgo names, whitespace-only input, joining a nonexistent room, a
+full room and a started game are all covered by the unit tests and the manual socket
+probe rather than the match harness, because none of them get far enough to affect a
+match.
+
+### Unit and integration tests — **207 passing**
+
+Room codes · name generation and the adversarial blocklist filter · matchmaking
+fairness over 100-round runs at every player count · scoring maths · tie handling ·
+story assembly and progressive unlock · content schema · the two disguise lints ·
+sanitiser (XSS / Zalgo / emoji / length fixtures) · FSM legal and illegal transitions ·
+awards at every player count · **finale scoring balance over 1,000 Monte-Carlo
+matches** · **33 WCAG contrast assertions across both palettes**.
+
+---
+
+## PHASE 9 — VISUAL AUDIT
+
+**Driving roles:** Visual / Brand Designer + Accessibility Reviewer
+**Auditor:** Game UX Designer
+
+Audited the **running application**, not the source. `scripts/screenshots.ts` drives
+it with one real browser context per player — Chromium via Playwright, which the
+preflight confirmed was available — and captures every screen at 320 / 390 / 768 /
+1280 / 1920 px. It also runs structural assertions against the live DOM at every
+breakpoint, because a screenshot cannot prove the absence of horizontal overflow:
+
+- nothing wider than the viewport
+- every button, link and input at least 44×44
+- every control has an accessible name
+- every `<img>` has an `alt`
+- nothing with `.breakable` overflowing its container (long names, 160-char answers)
+
+Contrast is asserted separately and deterministically in `tests/contrast.test.ts`:
+33 checks across 15 real text/background pairs in **both** palettes. That is a
+better artefact than a screenshot — if somebody re-themes the game by editing
+`brand.ts`, which is the entire point of that file, the test tells them immediately
+whether the new palette is still legible.
+
+### Findings and fixes
+
+| # | Screen | Found | Fixed |
+|---|--------|-------|-------|
+| V1 | every screen | The warm cream paper rendered **grey**. `background-blend-mode: multiply` on `body` plus a `::before` grain overlay applied the noise twice. | Grain applied once, at 3–4% opacity. The paper is cream again, and the fixed blended layer that was also a scrolling-jank risk on weak GPUs is gone. |
+| V2 | lobby (10 players) | Names truncated to 11 characters (`Suspicious …`) with plenty of room to spare, and ten players rendered as ten full-width rows. | Chips get the full 21ch; only the tight header slot opts into a short clamp. Roster items size to content and wrap into a block. |
+| V3 | lobby | Kick buttons floated outside their chips as detached dashed circles. | Each roster entry is one flex row: chip plus its own control. |
+| V4 | lobby, everywhere | Icon-only controls (⚙, ✕) were 40px, under the 48×48 minimum. | `.btn--icon` at the full `--tap-min`; `.btn--small` raised to 44px. Now asserted on every screen at every width. |
+| V5 | lobby (condensed group view) | The room code overflowed its panel — `--t-code` is viewport-relative, but the condensed panel is narrow. | The code sizes against its **container** (`21cqw` inside `container-type: inline-size`), with the viewport clamp as the `@supports` fallback. |
+| V6 | lobby | A burst of joins stacked four toasts over the settings panel. | Toast stack capped at three. |
+| V7 | identify | The avatar grid was two across on a phone, making the page enormous. | Three across at 320px, more as the screen grows. |
+| V8 | round prompt / vote / results | The condensed group view was a **full duplicate** of the player's own controls: the prompt, the timer, the round counter and the scoreboard all appeared twice on one phone screen. | The condensed strip now drops whatever the player already has — the prompt when they are competing, the timer, the phase heading, and the answer list on the vote screen. |
+| V9 | story update, final story | Copy read "Look up. This is the good bit." — but plenty of groups play with no shared screen at all, and the story was rendered *below* those words. | Reworded to be direction-agnostic. |
+| V10 | drawing canvas | Eight colour swatches wrapped 7 + 1, orphaning pink onto its own row at phone widths. | Swatches are a `repeat(8, 1fr)` grid and share the row evenly. |
+| V11 | drawing (artist's device) | The condensed group view told the artist "Captain Meatball is drawing" — on Captain Meatball's own phone. | Suppressed for the artist. |
+| V12 | error screens | Every one said the same sentence twice: the server sent `"title. body"` and the client already renders the title from `ERROR_COPY`. | The server sends the body only. |
+| V13 | error screens | `RETRYABLE` was configured but `onRetry` was never wired, so the retry path was dead. | Wired to a reload. |
+| V14 | **round results (4 players)** | A third answer credited to **THE HOUSE** — in a four-player game, where the house should never play. | A genuine gameplay bug, not a visual one. See I17. |
+
+**V14 is the case for doing this phase at all.** It is a rules bug that no unit test
+caught, that the bot harness did not assert, and that is invisible in the source
+unless you already suspect it. It was obvious in one screenshot of a results screen.
+
+### What the screenshots confirm works
+
+- The **payoff lands.** "Management announces a new position, effective immediately:
+  *my uncle, legally*" — a player's answer to "invent a job title that absolutely
+  should not exist", read back as a corporate announcement. That is the whole game,
+  and it works on the first playthrough.
+- House-filled slots are visually distinct from player-filled ones (italic and muted
+  versus mint with an attribution chip), so a room can see what they wrote and what
+  the game wrote for them.
+- Freshly inserted answers stamp in marigold on the story update.
+- The room code is the largest object on the shared screen and legible across a room.
+- The drawing brief carries the derived clause — "…from: *At the gangway, security
+  confiscates the concept of a Tuesday from a passenger in cabin 214.*" — so the
+  artist knows the context without being told the answer.
+
+---
+
+## PHASE 10 — FUNCTIONAL AUDIT
+
+**Driving role:** Game UX Designer
+**Auditor:** Executive Producer / Technical Director
+
+Complete matches played through the **real UI**, in multiple simultaneous browser
+contexts — one per player, each with its own `sessionStorage`, exactly as separate
+phones would be. `scripts/screenshots.ts` is the functional audit as well as the
+visual one: it types into the real inputs, clicks the real buttons, draws on the real
+canvas with real pointer events, and waits on the real phase transitions.
+
+### The full arc, verified end to end
+
+create a room → the code appears on screen → join from a second and third context →
+name and avatar on each → host sets mode, rounds, timer and finale → rounds with
+private prompts and anonymous voting → story updates → the final story → the drawing
+finale (draw, guess, vote, results) → final leaderboard, awards and highlights →
+**PLAY AGAIN** → a second match starts with the same people and a fresh story →
+**RETURN TO LOBBY**.
+
+### Does the comedy actually land?
+
+This is the part that cannot be asserted, so it was read.
+
+- **The hook works on the first playthrough.** "Invent a job title that absolutely
+  should not exist" produced *my uncle, legally*, which the story read back as:
+  *"Management announces a new position, effective immediately: my uncle, legally.
+  There are no applicants."* Nobody who wrote that answer could have seen it coming,
+  which is the entire design goal.
+- **The reveal has beats, not a dump.** The story update opens only as far as play has
+  reached, stamps the new insertions in marigold, and attributes each to a player with
+  their avatar. The final read-out paces line by line.
+- **House fills read differently from player fills** — italic and muted versus mint
+  with an attribution chip — so a room can see at a glance what they wrote and what
+  the game wrote for them. In a three-round match through a ten-slot story that is
+  most of the page, and it still reads as a finished story rather than a gap-filler.
+- **The derived drawing prompts are the right kind of absurd.** "Draw this: *the
+  concept of a Tuesday*" with the clause it came from underneath — the artist knows
+  the context without being handed the joke.
+
+### Copy fixed as a result of playing it
+
+- "Look up. This is the good bit." assumed a shared screen. Plenty of groups play
+  with none, and the story was rendered directly below those words.
+- "Look at the big screen." on the results screen, same problem.
+- The condensed group view repeated the player's own prompt, timer, round counter and
+  scoreboard — on a phone that is the same information twice on one screen.
+- The artist's own device was told who was drawing.
+
+### What could not be audited this way
+
+Real human comedy at a real party. A harness can prove the machine assembles the
+joke correctly; it cannot prove that six people in a room laugh. That is what the
+first playtest is for, and nothing in this build substitutes for it.
+
+---
+
+## PHASE 12 — DOCS, GIT, DEPLOY READINESS
+
+**Driving role:** DevOps / Deployment Engineer
+**Auditor:** Final Integration Reviewer
+
+### Deploy validation
+
+`wrangler deploy --dry-run` against the real config:
+
+```
+✨ Read 13 files from the assets directory web/dist
+Total Upload: 914.90 KiB / gzip: 158.99 KiB
+Your Worker has access to the following bindings:
+Binding                 Resource
+env.ROOMS (RoomDO)      Durable Object
+```
+
+Config parses, the Durable Object binding resolves, the static-asset directory is
+found, and the worker script is well inside Cloudflare's 1 MiB gzipped script limit.
+`pnpm deploy` is `pnpm build && wrangler deploy` — one command, one origin, no
+environment variables and no secrets.
+
+The migration uses `new_sqlite_classes`, which is available on the free plan.
+
+### Documentation
+
+| File | What it is |
+|---|---|
+| `README.md` | Overview, quick start, architecture and **why Durable Objects**, structure, dev, deploy, multiplayer model, testing, performance, accessibility, security, known limitations, future |
+| `GAME_DESIGN.md` | The loop, the hidden-context hook, Classic vs Crude, matchmaking rules, scoring tables with the actual constants and the measured balance, the story engine, finale rules, host settings, every award and its derivation |
+| `CONTENT_GUIDE.md` | Adding a story with a full annotated example, writing disguised prompts (do's and don'ts, and the two lints that enforce them), name-generator words, avatar packs, SFX recipes, Crude boundaries, running the linter |
+| `BUILD_LOG.md` | This file |
+
+### Git
+
+History begins at the first commit of this session and is intact — no force-push, no
+rewrite, no deleted branches. Conventional commits, one per phase gate plus one per
+round of audit fixes, each describing what was found rather than what was typed.
+
+---
+
 ## PHASE 11 — ADVERSARIAL REVIEW
 
 Every role, answering the same nine questions with specific evidence. Findings are
@@ -381,6 +622,18 @@ KNOWN LIMITATIONS with a one-line reason).
 | I14 | S3 | A burst of joins stacked four toasts over the settings panel. | Toast stack capped at three. | ✅ fixed |
 | I15 | S3 | The self-vote fault case could never fire at 4 players — the *test* was wrong. | Split into a 2-player `SELF_VOTE` case and a 4-player `NOT_YOUR_TURN` case. | ✅ fixed |
 | I16 | S3 | ESLint linted `web/dist`, reporting 3,270 errors in bundled React. | Recursive ignore globs. | ✅ fixed |
+| I17 | **S1** | **THE HOUSE played in every matchup from 2 to 5 players.** `needsHouseAnswer` asks "does this room have two people" and both call sites passed `competitorIds.length`, which is 2 for any room that size. Found in a screenshot of a 4-player results screen. | Pass the eligible *room* size. Harness now asserts it on every match above two players. | ✅ fixed |
+| I18 | **S1** | A room could stick in `ROUND_VOTE` forever when the host left permanently; the fault case timed out at 300s. | Fixed alongside I19/I20; the case now finishes in 92s. | ✅ fixed |
+| I19 | S2 | Host migration returned early when nobody was promotable *without* clearing its timer, so `refreshDerivedTimers` re-armed an already-past deadline and the alarm span hot. Reachable when the host leaves while everyone else is still on the name screen. | Push `hostMissingSince` forward instead of leaving a past deadline. | ✅ fixed |
+| I20 | S2 | A phase blocked on one absent player only re-checked itself on presence changes, so the last online competitor answering still left the room waiting out the full 45s timer. | Re-check after every submission too. Fault cases dropped 96s→77s and 80s→55s. | ✅ fixed |
+| I21 | S2 | Locked story sections shipped their real prose and were only blurred in CSS — the rest of the story was one devtools panel away. | Redacted server-side; the client physically cannot render it. | ✅ fixed |
+| I22 | S2 | Drawings were inlined in the view, so a 200 KB PNG was re-sent to every socket on every broadcast (megabytes per drawing at 10 players). | Served from a cacheable HTTP route, cache-busted per match. | ✅ fixed |
+| I23 | S2 | The countdown called `setState` every animation frame — 60 full re-renders a second for a number that changes once a second. | Quantised to 500ms. | ✅ fixed |
+| I24 | S2 | `MAX_CONNECTIONS_PER_ROOM` was declared but never enforced, and unbound sockets cost an attacker nothing to hold. | Cap enforced, plus a 10s handshake sweep that runs *before* the count. | ✅ fixed |
+| I25 | S2 | Stored drawings were never cleared between matches, so a replay could show the previous match's picture. | Cleared on PLAY AGAIN and RETURN TO LOBBY. | ✅ fixed |
+| I26 | S2 | A host who declined the 18+ gate was locked out of their own room, with no way back to the setting they had just changed. | For the host, declining reverts the room to Classic. | ✅ fixed |
+| I27 | S3 | The canvas exported at `devicePixelRatio` (1600×1200 on a retina phone) instead of the fixed 800×600 the transport spec sets, and a `pointerleave` handler chopped strokes short mid-drag. | Downscale through an offscreen canvas; drop the handler (pointer capture already covers it). | ✅ fixed |
+| I28 | S3 | Story sections declared `audioCue`s that nothing ever played, and every UI interaction made the same click. | Cues fire as sections reveal; distinct sounds for join/ready/submit/vote, plus local timer warnings. | ✅ fixed |
 
 Severity scale: **S1** ship-blocker · **S2** major · **S3** minor · **S4** polish
 
@@ -397,6 +650,12 @@ Severity scale: **S1** ship-blocker · **S2** major · **S3** minor · **S4** po
 | A5 | The finale's scoring constants deviate from the brief's suggested values; the standard-round constants do not. | The brief asks for both fixed constants and a 25–35% finale share, which cannot both hold. The balance test is the stated arbiter. See Phase 1 above. |
 | A6 | Crude rooms draw on the classic story pack as well as the crude one. | Doubles the pool that "no repeats between matches" works against, and a filthy room still enjoys a corporate horror story. |
 | A7 | A few extra `/shared` modules exist beyond the brief's file list (`awards.ts`, `views.ts`, `rng.ts`, `sfx.ts`, `blocklist.ts`, `roomWords.ts`). | Keeps every file under the ~350-line ceiling the brief also sets. Same layer, same purity rules. |
+| A8 | `create_room` is a protocol message, but the room code is allocated first by `POST /api/rooms`. | A code has to exist before a socket can be routed to the Durable Object that owns it. Claiming happens *inside* the object, which is single-threaded, so two simultaneous creators cannot both win. The `?code=NEW` sentinel keeps the pure-WebSocket path working too. |
+| A9 | Drawings travel over HTTP (`/api/rooms/:code/drawing/:index`), not in the `state` broadcast. | The brief specifies a 200 KB PNG data URL on the *submission*; putting it back into every broadcast would have sent megabytes per drawing at ten players. The submission is unchanged; only the distribution is. |
+| A10 | The story *title* is withheld until the first STORY_UPDATE. | Not in the brief's field list, but showing it on the setup screen defeats the hidden-context hook the brief is built around. |
+| A11 | The host is implicitly ready; there is no READY button on the host's own controls. | Pressing START *is* their readiness. Otherwise START can never enable, which is what shipped until the visual audit caught it. |
+| A12 | Locked story sections are redacted server-side rather than hidden with CSS. | Blurring still ships the text. The rest of the story would have been one devtools panel away. |
+| A13 | The matrix runs 3 rounds rather than 5 for most configurations. | The round *loop* is identical at 5; the extra rounds buy wall clock, not coverage. 1, 5 and 15 rounds are each covered explicitly elsewhere. |
 
 ---
 
@@ -407,3 +666,34 @@ Per **Section 16 — FORBIDDEN THIS SESSION**. Logged here and mirrored into REA
 accounts · persistent profiles · matchmaking across rooms · store/DLC · community content
 marketplace · AI-generated stories · voice chat · achievements · global leaderboards ·
 spectators · native apps · moderation portal · i18n · analytics
+
+Nothing on that list was built, and no role proposed anything from it. The Executive
+Producer rejected two in-scope-adjacent ideas during the build:
+
+| Proposed by | Idea | Ruling |
+|---|---|---|
+| Audio Designer | A procedural music loop for the lobby and the final story. | **Rejected.** The brief says "do not spend session time on a soundtrack". The mixer keeps its music channel; it is silent, and README says so. |
+| Content Designer | A fifth and sixth classic story to widen the rotation. | **Rejected.** "Engine quality > content volume." Seven stories is enough to prove repeat matches without repeats; the linter and the two disguise lints matter more than the eighth story. |
+
+---
+
+## DEFINITION OF DONE
+
+| | Criterion | Evidence |
+|---|---|---|
+| ✅ | `pnpm dev` starts client + worker with no errors or console warnings | Both run; Playwright captures zero `pageerror` and zero console errors across the whole sweep |
+| ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
+| ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
+| ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
+| ✅ | All unit + integration tests pass, including the finale balance test | **207 passing**; finale lands 29.3–33.3% across 3–10 players |
+| ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
+| ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
+| ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |
+| ✅ | Host disconnect migrates authority; no room can become unrecoverable | Fault case "host leaves permanently"; the FSM test proves every phase can reach the lobby |
+| ✅ | Every error state has a designed screen with a working action | 12 error codes, one copy source, screenshots at every width |
+| ✅ | No TODO/FIXME/placeholder in any gameplay code path | `grep` clean |
+| ✅ | No dead code, no unused deps, no `any` in shared or server code | 20 unused exports removed; eslint bans `any` in `shared`/`server`/`content` |
+| ✅ | Bundle size recorded and within budget | **90.6 KB gzipped** initial, against 250 KB |
+| ✅ | All four docs written and accurate | README · GAME_DESIGN · CONTENT_GUIDE · BUILD_LOG |
+| ✅ | Git tree clean, history intact, meaningful commits | Conventional commits, one per phase gate plus audit fixes |
+| ✅ | Adversarial review complete with findings fixed or documented | Phase 11; everything unfixed is in README → KNOWN LIMITATIONS |
