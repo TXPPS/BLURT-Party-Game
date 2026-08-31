@@ -24,7 +24,7 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 3. Two answers go head to head. Vote for the better one. You can't vote for your own.
 4. Winning answers get quietly filed into a story nobody has seen yet.
 5. At the end the story is read out with your answers wedged into it. That's the joke.
-6. Then a drawing round — several draw at once, the rest guess — then scores. Ten minutes.
+6. Then everyone draws at once, three get shown and guessed at, then scores. Ten minutes.
 
 ---
 
@@ -43,10 +43,14 @@ DATE:      ____________   PLAYERS: ____   MODE: Classic / Crude
 
 ## How long a session actually runs
 
-Everybody selected to draw draws **at the same time**, in one window, so the finale
-costs one drawing timer regardless of how many artists there are. The showcase after
-it — guess, vote, results — still runs once per picture, because that half is the
-show and the room is meant to watch it together.
+**Everybody** draws, at the same time, in one window — ten players is one drawing
+timer, same as three. The showcase after it — guess, vote, results — runs once per
+picture and is capped at **three**, because that half is the show and each extra one
+costs the room a full guess/vote/results cycle.
+
+Artists whose picture is not among the three still get paid (the median of what the
+shown artists earned), the last showcase screen says so, and every drawing turns up in
+the end-of-match gallery.
 
 Worst case for a 3-round match with the finale, if every single phase ran to its
 buzzer and nobody ever submitted early:
@@ -67,8 +71,9 @@ at a time, so NORMAL had a 21.3-minute worst case with **64%** of it drawing. It
 13.2 minutes at 42%.
 
 Levers, if you still want it shorter: `DRAWING_ACTIVE_MS` in `shared/constants.ts` sets
-the drawing window per preset, and `DRAWING_MAX_ARTISTS` (currently 4) caps how many
-pictures the showcase has to get through. Or run the session on **FAST**, which is what
+the drawing window per preset, and `DRAWING_SHOWCASE_MAX` (currently 3) caps how many
+pictures the showcase has to get through. Raising the latter is what pushes match
+length up — four costs 60s at FAST and 110s at RELAXED — so measure before you do. Or run the session on **FAST**, which is what
 every automated run in this build uses.
 
 **What to actually watch now.** The drawing phase ends when the last artist submits, so

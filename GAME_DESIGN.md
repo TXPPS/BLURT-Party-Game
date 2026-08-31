@@ -157,34 +157,57 @@ broadcast log and compare.
 | `DECOY_FOOLED_SOMEONE` | **65** per player fooled |
 | `ARTIST_PER_CORRECT` | **70** per identifier |
 | `ARTIST_PERFECT_BONUS` | **140** |
+| `FINALE_MULTIPLIER` | **0.94** — applied to all four |
 
 **Why the finale constants differ from the brief's suggested 300 / 250 / 200 / 300.**
 
 The brief asks for two things that cannot both hold: fixed constants *and* a finale
-worth 25–35% of all points. A finale paying 300 per correct guess mints a payout for
+worth a fixed share of all points. A finale paying 300 per correct guess mints a payout for
 *every voter* on *every drawing*, and at five rounds it takes roughly **64%** of the
 match. Something had to give.
 
 The standard-round constants were kept exactly as specified — they are the numbers
 players see every single round — and the finale constants were tuned, which is
-precisely what `tests/scoring.balance.test.ts` exists to govern. A second lever was
-added with an independent design justification (below).
+precisely what `tests/scoring.balance.test.ts` exists to govern.
 
-### Drawing count by room size
+Since everybody draws, the finale pays more people than it used to, and the share
+needed moving again. Rather than rewrite the four payouts a second time and lose the
+reasoning behind each, there is now a single knob — `FINALE_MULTIPLIER`, applied to
+every finale payout at the point of minting. The four figures above still read as the
+values the design chose; one number decides what the finale is worth overall.
 
-| Players | Drawings |
+### Who draws, and who gets shown
+
+These used to be one number. They are not the same question.
+
+| | Count |
 |---|---|
-| 2–5 | up to 4 (everybody draws once) |
-| 6–10 | 3, chosen **lowest score first** |
+| **Artists** | everybody in the room, up to 10 |
+| **Showcased** | `DRAWING_SHOWCASE_MAX` = **3** |
 
-Two reasons that happen to agree. **Pacing:** a drawing round costs the same
-wall-clock time whatever the player count, so a big room does not want four of them
-back to back. **Balance:** every extra player adds a guesser, and every guesser mints
-a payout, so a big room already earns more per drawing. Lowest-score-first makes the
-finale a genuine comeback slot rather than a victory lap.
+Drawing is simultaneous, so a tenth artist costs the room nothing — one window covers
+all of them. But every drawing *shown* costs a guess, a vote and a results screen, and
+that is what makes a finale long: an extra showcase is 60s at FAST, 80s at NORMAL and
+110s at RELAXED. So artists scale with the room and the showcase does not.
 
-Always capped by how many drawable subjects the story actually produced — a
-three-round match cannot promise four drawings.
+Three, not four, and that was measured rather than assumed: four pushed the worst-case
+match 55–113s past where it had been, against a 60s budget. Three keeps the match
+exactly the length it is today while every single player gets to draw.
+
+**Which three.** Seeded-random among the drawings that actually arrived, preferring
+artists with fewer standard-round wins — so the showcase leans towards whoever the
+standard rounds passed over, and two players who both won nothing are separated by
+chance rather than by something arbitrary like their player id.
+
+**The artists who miss out** are paid `unshownArtistComp`: the *median* of what the
+showcased artists earned. Median rather than mean, so one drawing everybody recognised
+does not inflate what the unshown are owed and one nobody got does not deflate it —
+being left out is never better or worse than average luck. The payment lands on the
+last showcase screen, next to the line explaining it, because a score that moves with
+no visible reason reads as a bug.
+
+**Every drawing is shown eventually.** The end-of-match gallery carries all of them,
+showcased or not, so nobody draws into a void.
 
 ### Measured balance
 
@@ -192,22 +215,25 @@ three-round match cannot promise four drawings.
 `resolveDrawing` / matchmaking code with uniformly-random voters (the worst case for
 the artist):
 
-| Players | Drawings | Standard pts/match | Finale pts/match | Finale share |
-|--------:|---------:|-------------------:|-----------------:|-------------:|
-| 2 | 2 | 1135 | 640 | 36.1% |
-| 3 | 3 | 1750 | 843 | 32.5% |
-| 4 | 4 | 2741 | 1260 | **31.5%** |
-| 5 | 4 | 3007 | 1500 | 33.3% |
-| 6 | 3 | 3179 | 1317 | **29.3%** |
-| 7 | 3 | 3602 | 1515 | 29.6% |
-| 8 | 3 | 4070 | 1717 | **29.7%** |
-| 9 | 3 | 4255 | 1898 | 30.9% |
-| 10 | 3 | 4751 | 2111 | 30.8% |
+| Players | Artists | Shown | Standard pts/match | Finale pts/match | Finale share |
+|--------:|--------:|------:|-------------------:|-----------------:|-------------:|
+| 2 | 2 | 2 | 1135 | 602 | 34.7% |
+| 3 | 3 | 3 | 1750 | 792 | 31.2% |
+| 4 | 4 | 3 | 2745 | 965 | **26.0%** |
+| 5 | 5 | 3 | 2993 | 1179 | 28.3% |
+| 6 | 6 | 3 | 3179 | 1419 | **30.9%** |
+| 7 | 7 | 3 | 3602 | 1667 | 31.6% |
+| 8 | 8 | 3 | 4070 | 1920 | **32.1%** |
+| 9 | 9 | 3 | 4255 | 2135 | 33.4% |
+| 10 | 10 | 3 | 4751 | 2421 | 33.8% |
 
-The three counts the brief names (4 / 6 / 8) sit near the middle of the band. Two
-players reads 36.1% — with only two people a finale *should* weigh more, and that
-configuration is not one the brief asks the test to assert. Recorded under KNOWN
-LIMITATIONS rather than papered over.
+The band is **22–38%** and the measured range is **26.0–34.7%**, so there is roughly
+four points of headroom at each end. The three counts the brief names (4 / 6 / 8) sit
+near the middle.
+
+Two players reads highest, which is right: with only two people a finale *should*
+weigh more. It is now inside the band rather than just outside it, because everybody
+drawing lifted the floor at small player counts.
 
 ### Ties
 
@@ -249,16 +275,22 @@ ten-slot story would only ever reveal two sections.
 
 ## 7. The drawing finale
 
-Prompts are **derived from the story the room just built**, so the artist is always
+Prompts are **derived from the story the room just built**, so the artist is usually
 drawing something one of *them* wrote — visual semantic types (person, creature,
 object, place, possession) first, falling through to anything filled if a short match
 did not produce enough. An unillustratable prompt is funnier than a finale that
 cannot start.
 
+There are only ever as many story-derived prompts as there were rounds — a three-round
+match yields three — and every player now draws, so a big short match runs out. The
+shortfall is filled from `content/genericPrompts.ts` rather than cutting the artist
+count back to the prompt supply. Nobody can tell which they got: the guessers never see
+the prompt's provenance, only the drawing.
+
 The finale splits into a **drawing half** and a **showcase half**, and they are paced
 differently on purpose.
 
-1. **DRAWING_ACTIVE** — *every* artist draws at the same time, privately, on their own
+1. **DRAWING_ACTIVE** — *everybody* draws at the same time, privately, on their own
    device, inside one shared window. Eight colours, three brush sizes, undo, clear.
    Deliberately not an editor: bad drawings are the joke, and every extra tool makes
    them less bad. Everybody who is not drawing watches a live count of how many
@@ -269,8 +301,10 @@ differently on purpose.
    three drawing timers looking at a progress bar. Simultaneous drawing costs one
    timer no matter how many artists there are.
 
-Then, **once per drawing, in sequence**, because this half *is* the show and the whole
-room is meant to be looking at the same picture:
+Then, **once per showcased drawing, in sequence**, because this half *is* the show and
+the whole room is meant to be looking at the same picture. Only three are shown — see
+"Who draws, and who gets shown" above for why, and for what the other artists are
+paid:
 
 2. **DRAWING_GUESS** — everyone else sees the drawing and writes what they think the
    prompt was. These become the decoys.

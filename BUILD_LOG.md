@@ -28,6 +28,7 @@ findings are **fixed**, not merely recorded.
 | 13 | Architecture conformance sweep | Technical Director | ✅ complete | Final Integration Reviewer | PASS — 8 oversized files → 4, one argued exception; 216 unit tests |
 | 14 | Deploy + playtest instrumentation | DevOps / Deployment Engineer | ⛔ blocked (deploy) · ✅ complete (instrumentation) | Executive Producer | BLOCKED — Cloudflare unreachable from this environment; pacing log and latency harness shipped and verified locally |
 | 15 | Simultaneous drawing finale | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — worst case 21.3m → 13.2m at NORMAL; matrix 16/16, faults 22/22 |
+| 16 | Everyone draws; showcase decoupled | Gameplay Systems Engineer | ✅ complete | QA Engineer | PASS — 3 artists → all 10; match length unchanged (+3s worst); finale share 26.0–34.7% |
 
 Legend: ⏳ pending · 🔨 in progress · 🔍 in audit · ✅ complete · ⛔ blocked
 
@@ -895,6 +896,101 @@ canvas.
 
 ---
 
+## PHASE 16 — EVERYONE DRAWS, SHOWCASE CAPPED SEPARATELY
+
+**Driving role:** Gameplay Systems Engineer · **Auditor:** QA Engineer
+
+Phase 15 made drawing simultaneous, which quietly obsoleted the artist cap: a tenth
+artist now costs the room no wall-clock time at all. But the cap was still there, so a
+ten-person game had three people drawing and seven watching. Artist count and showcase
+count were one number doing two jobs; this splits them.
+
+| | Before | After |
+|---|---|---|
+| Artists | 3 (4 in a small room) | **everybody, up to 10** |
+| Shown | 3 | **3** (`DRAWING_SHOWCASE_MAX`) |
+| Worst case at NORMAL | 13.2 min | **13.1 min** |
+
+### Prompt supply, measured
+
+Every MVP story has exactly **10 slots** (4–6 of them visual):
+
+| Mode | Story | Slots | Visual |
+|---|---|---:|---:|
+| classic | annual_review | 10 | 5 |
+| classic | seven_nights_at_sea | 10 | 6 |
+| classic | parents_evening | 10 | 5 |
+| classic | the_house_sitter | 10 | 5 |
+| crude | the_stag_do | 10 | 5 |
+| crude | the_routine_checkup | 10 | 4 |
+| crude | the_family_group_chat | 10 | 5 |
+
+But the story is not the binding constraint. Prompts are derived only from slots that
+were actually **played**, and `plan.length === rounds`, so a three-round match yields
+three prompts no matter which story it drew. That is why a 4-player game produced three
+drawings, and it is why "everybody draws" needs a fallback: a ten-player, three-round
+match is seven prompts short. `content/genericPrompts.ts` supplies twenty, dealt from a
+shuffled deck. Cutting the artist count back to the prompt supply would have been the
+exact coupling this phase exists to remove.
+
+### The timing gate stopped this once
+
+Task 4 set a hard rule: worst case must not grow more than 60s, and stop if it does.
+At `DRAWING_SHOWCASE_MAX = 4` it grew **+55s (FAST), +75s (NORMAL), +113s (RELAXED)** —
+because the previous *effective* showcase count was three, so four was quietly adding a
+whole guess/vote/results cycle (60s / 80s / 110s by preset).
+
+That is a genuine conflict inside the request — a specified value of 4 against a budget
+that only 3 fits — so the work stopped there and the choice went back to the author
+with both measurements rather than being decided here. Answer: three.
+
+At three the delta is **−5s to +3s**: the match is exactly as long as it was, and all
+ten players draw instead of three.
+
+### Balance
+
+`FINALE_MULTIPLIER` is new, and is the only knob tuned. The four base payouts are
+untouched and still read as the values the design chose; the multiplier decides what
+the finale is worth overall.
+
+| | Share across 2–10 players |
+|---|---|
+| Before this phase | 30.8–36.1% |
+| Everybody drawing, multiplier 1.0 | 31.5–**40.0%** ✗ |
+| Multiplier 0.8, showcase 4 | 26.9–34.8% |
+| **Multiplier 0.94, showcase 3 (shipped)** | **26.0–34.7%** ✓ |
+
+Retuned after the showcase dropped to three: 0.8 had been fitted to a four-drawing
+showcase and left the 4-player case at 23.0%, one point off the floor. Band is 22–38%.
+
+### Two bugs, both found by running it
+
+Neither was visible to the type-checker, and neither would have been caught by reading
+the diff.
+
+1. **A second `currentDrawing`.** `viewParts` had its own copy that indexed `drawings`
+   directly, while `finale.currentDrawingRecord` walked the showcase. The moment those
+   two lists stopped being the same, views and private payloads pointed at a different
+   picture than the one being scored — guessers were shown options for a drawing nobody
+   was voting on, and every showcase ran to its buzzer. Collapsed to one definition
+   rather than patching the duplicate.
+
+2. **An invisible payout.** The gallery compensation was applied on the way out of the
+   finale, where it never appeared in any broadcast delta. The harness's score
+   reconciliation caught 56 points arriving with no line item. That is a real defect,
+   not a harness gap: a player would have watched their score jump with nothing on
+   screen explaining it. It is now minted on the last showcase screen, in that screen's
+   deltas, beside the sentence that explains it.
+
+### Verification
+
+A new harness invariant asserts every connected player is dealt a prompt during
+DRAWING_ACTIVE, read from the private payload — the only place a prompt appears.
+Mutation-tested by restoring the old three-artist cap: it fires for all seven players
+who lose their prompt.
+
+---
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -1030,7 +1126,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
-| ✅ | All unit + integration tests pass, including the finale balance test | **223 passing**; finale lands 29.3–33.3% across 3–10 players |
+| ✅ | All unit + integration tests pass, including the finale balance test | **223 passing**; finale lands 26.0–34.7% across 2–10 players |
 | ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
 | ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
 | ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |

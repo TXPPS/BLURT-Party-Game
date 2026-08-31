@@ -61,9 +61,11 @@ Requires **Node ≥ 20**. `pnpm` is the package manager of record; `npm` works t
    away.
 4. **The final story.** The whole thing, read out line by line.
 5. **The drawing finale.** Prompts are pulled out of the story the room just built,
-   so somebody is always drawing something one of *them* wrote. Everybody picked
-   draws **at the same time**, in one window; each picture is then shown in turn,
-   everyone else writes a fake prompt, and the room votes on which was real.
+   so somebody is usually drawing something one of *them* wrote. **Everybody** draws,
+   at the same time, in one window. Three pictures are then shown in turn — everyone
+   else writes a fake prompt and the room votes on which was real — and the artists
+   there was no time for are paid the median of what the shown artists earned. Every
+   drawing turns up in the end-of-match gallery.
 6. **Results.** Leaderboard, awards derived from real tracked stats, and a highlight
    reel. Then PLAY AGAIN, with a story they have not heard.
 
@@ -321,7 +323,7 @@ whether the new palette is still legible.
 
 Including **`tests/scoring.balance.test.ts`**, which Monte-Carlo simulates 1,000
 matches at 4, 6 and 8 players through the *real* scoring and matchmaking functions and
-holds the drawing finale to 25–35% of all points awarded. It is what the finale
+holds the drawing finale to 22–38% of all points awarded (measured: 26.0–34.7%). It is what the finale
 constants were tuned against — see GAME_DESIGN.md §5.
 
 And **`tests/roomUpkeep.test.ts`**, which covers the two rules that decide whether an
@@ -435,7 +437,7 @@ a handful of `requestAnimationFrame` loops.
 
 | | |
 |---|---|
-| **Two-player finale share** | At exactly 2 players the drawing finale is 36% of all points, just outside the 25–35% band the balance test asserts at 4/6/8. With two people a finale *should* weigh more, so this is accepted rather than tuned away. |
+| **Two-player finale share** | At exactly 2 players the drawing finale is 34.7% of all points — the highest of any player count, though now inside the band. With two people a finale *should* weigh more, so this is accepted rather than tuned away. |
 | **No persistence** | Room state lives in the Durable Object for the session. Close every tab for 30 minutes and the room is gone, by design. |
 | **Content volume** | 4 classic and 3 crude stories, 70 slots. Enough to play repeat matches without repeating a story, not enough for a long night. Engine quality was prioritised over content volume; adding a story is two steps (CONTENT_GUIDE §1). |
 | **Music** | The mixer has a music channel and it is silent. Building a procedural soundtrack was out of scope. |

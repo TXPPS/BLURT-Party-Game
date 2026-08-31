@@ -64,7 +64,7 @@ export const ARTIST_PERFECT_BONUS = 140;
  *
  * Tuned against `tests/scoring.balance.test.ts`, which holds the share to 22–38%.
  */
-export const FINALE_MULTIPLIER = 0.8;
+export const FINALE_MULTIPLIER = 0.94;
 
 /** Every finale payout goes through here, so the multiplier cannot be half-applied. */
 export function finalePoints(base: number): number {

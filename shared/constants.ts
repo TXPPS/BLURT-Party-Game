@@ -233,11 +233,15 @@ export const DRAWING_ARTISTS_LARGE_ROOM = 3;
  * long. So the two numbers are decoupled: artists scale with the room, the showcase
  * does not.
  *
- * Four, not six, until there is a measurement that says otherwise. Each extra showcase
- * adds roughly 70 seconds of worst case at NORMAL, and the showcase is the half people
- * watch rather than do.
+ * Three, measured rather than guessed. Each extra showcase costs a full guess + vote +
+ * results cycle — 60s at FAST, 80s at NORMAL, 110s at RELAXED — and four pushed the
+ * worst-case match 55–113s past where it was. Three keeps the match exactly the length
+ * it is today while every player draws, which is the trade this split existed to make.
+ *
+ * Raising it is a one-line change, but measure first: `pnpm simulate --timings` at 4
+ * and 10 players across all three presets is what caught it last time.
  */
-export const DRAWING_SHOWCASE_MAX = 4;
+export const DRAWING_SHOWCASE_MAX = 3;
 
 /* ------------------------------------------------------------------ *
  * Client storage keys
