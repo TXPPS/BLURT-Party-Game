@@ -42,6 +42,15 @@ export interface HandlerContext {
    * submission, and the host deciding to move on.
    */
   advancePhase(reason?: PhaseExitReason): void;
+  /**
+   * Re-ask the phase whether it is finished, *without* the host shortcut.
+   *
+   * `advancePhase` fires `onTimeout` whenever `hostCanAdvance` is set, which is right
+   * for the host pressing CONTINUE and catastrophically wrong for a player pressing
+   * READY — it let one person skip a reveal for the whole room. This path only ends
+   * the phase when `isComplete` genuinely says so.
+   */
+  settlePhase(): void;
   /** Send a non-fatal error to this socket only. */
   fail(code: ErrorCode, message?: string): void;
   /** Persist a drawing outside the JSON state. */
@@ -76,6 +85,8 @@ export function handleMessage(ctx: HandlerContext, message: ClientMessage): void
       return drawingVote(ctx, message.roundId, message.optionId);
     case 'advance':
       return ctx.advancePhase('host');
+    case 'advance_ready':
+      return advanceReady(ctx, message.ready);
     case 'play_again':
       return playAgain(ctx);
     case 'return_to_lobby':
@@ -120,6 +131,19 @@ function identify(ctx: HandlerContext, rawName: string, avatarId: string): void 
   if (!wasIdentified && ctx.state.phase !== 'LOBBY') {
     ctx.effects.toast('info', `${ctx.player.name} joined.`);
   }
+}
+
+/**
+ * "I am done looking at this." Toggling it re-asks the phase whether it is finished,
+ * which is what ends the screen the instant the last person presses it.
+ */
+function advanceReady(ctx: HandlerContext, ready: boolean): void {
+  if (!ctx.player.identified) return;
+  const set = ctx.state.readyToAdvance;
+  const at = set.indexOf(ctx.player.id);
+  if (ready && at === -1) set.push(ctx.player.id);
+  if (!ready && at !== -1) set.splice(at, 1);
+  ctx.settlePhase();
 }
 
 function setReady(ctx: HandlerContext, ready: boolean): void {

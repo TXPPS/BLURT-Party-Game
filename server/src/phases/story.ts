@@ -12,7 +12,7 @@ import {
   STORY_UPDATE_AUTO_MS,
 } from '../../../shared/constants.js';
 import { planFinale } from '../finale.js';
-import { setPhaseDeadline } from '../roomState.js';
+import { setPhaseDeadline , everyoneReadyToAdvance } from '../roomState.js';
 import { renderMatchStories } from '../story.js';
 import type { PhaseContext, PhaseHandler } from '../types.js';
 
@@ -25,8 +25,15 @@ export const storyUpdate: PhaseHandler = {
     if (ctx.state.match !== null) ctx.state.match.titleRevealed = true;
   },
 
-  isComplete() {
-    return false;
+  /**
+   * A watching screen is finished when the room says it is.
+   *
+   * The deadline is still the backstop — this only ever ends the phase *earlier*, and
+   * only when everybody present has pressed READY, so one impatient player cannot
+   * skip a reveal for the room.
+   */
+  isComplete(ctx) {
+    return everyoneReadyToAdvance(ctx.state, ctx.now);
   },
 
   onTimeout(ctx) {
@@ -65,8 +72,15 @@ export const finalStory: PhaseHandler = {
     ctx.effects.sfx('drumroll');
   },
 
-  isComplete() {
-    return false;
+  /**
+   * A watching screen is finished when the room says it is.
+   *
+   * The deadline is still the backstop — this only ever ends the phase *earlier*, and
+   * only when everybody present has pressed READY, so one impatient player cannot
+   * skip a reveal for the room.
+   */
+  isComplete(ctx) {
+    return everyoneReadyToAdvance(ctx.state, ctx.now);
   },
 
   onTimeout(ctx) {

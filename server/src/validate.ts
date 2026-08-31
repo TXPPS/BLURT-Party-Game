@@ -60,6 +60,7 @@ export const clientMessageSchema = z.discriminatedUnion('t', [
     t: z.literal('create_room'),
     protocolVersion: z.number().int(),
     hostName: rawText(NAME_MAX_LENGTH).optional(),
+    mode: z.enum(['classic', 'crude']).optional(),
   }),
   z.object({
     t: z.literal('join_room'),
@@ -68,6 +69,7 @@ export const clientMessageSchema = z.discriminatedUnion('t', [
   }),
   z.object({ t: z.literal('identify'), name: rawText(NAME_MAX_LENGTH), avatarId: id }),
   z.object({ t: z.literal('set_ready'), ready: z.boolean() }),
+  z.object({ t: z.literal('advance_ready'), ready: z.boolean() }),
   z.object({ t: z.literal('update_settings'), settings: settingsPatch }),
   z.object({ t: z.literal('kick_player'), playerId: id }),
   z.object({ t: z.literal('start_game') }),

@@ -16,6 +16,7 @@
 import { PING_INTERVAL_MS, PROTOCOL_VERSION } from '@shared/constants.js';
 import type { ClientMessage, ServerMessage } from '@shared/protocol.js';
 import { NEW_ROOM_SENTINEL } from '@shared/protocol.js';
+import type { GameMode } from '@shared/types.js';
 import { clearSession, loadSession, saveSession } from './session.js';
 
 export type ConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
@@ -46,6 +47,8 @@ export class RoomSocket {
   constructor(
     private readonly code: string,
     private readonly intent: 'create' | 'join',
+    /** Content mode chosen on the home screen; only meaningful when creating. */
+    private readonly createMode: GameMode | null,
     private readonly handlers: SocketHandlers,
   ) {}
 
@@ -114,7 +117,11 @@ export class RoomSocket {
     }
     this.send(
       this.intent === 'create' || this.code === NEW_ROOM_SENTINEL
-        ? { t: 'create_room', protocolVersion: PROTOCOL_VERSION }
+        ? {
+            t: 'create_room',
+            protocolVersion: PROTOCOL_VERSION,
+            ...(this.createMode === null ? {} : { mode: this.createMode }),
+          }
         : { t: 'join_room', protocolVersion: PROTOCOL_VERSION, code: this.code },
     );
   }

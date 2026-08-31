@@ -29,10 +29,6 @@ export function AdultGate({
           This room is playing in Crude mode. The prompts, the stories, the names and the pictures
           are adult, vulgar and frequently disgusting.
         </p>
-        <p className="muted">
-          Nothing sexualising minors, nothing non-consensual, and nothing aimed at who anybody is.
-          Everything else is fair game.
-        </p>
         <Button variant="danger" block onClick={onAccept}>
           I AM 18 OR OVER — LET ME IN
         </Button>

@@ -24,7 +24,7 @@ import {
   resolveCurrentMatchup,
   voteMs,
 } from '../match.js';
-import { findPlayer, isEligible, setPhaseDeadline, shortenPhaseDeadline } from '../roomState.js';
+import { findPlayer, isEligible, setPhaseDeadline, shortenPhaseDeadline , everyoneReadyToAdvance } from '../roomState.js';
 import type { PhaseContext, PhaseHandler } from '../types.js';
 
 function matchupOf(ctx: PhaseContext) {
@@ -90,8 +90,15 @@ export const roundReveal: PhaseHandler = {
     ctx.effects.sfx('reveal');
   },
 
-  isComplete() {
-    return false;
+  /**
+   * A watching screen is finished when the room says it is.
+   *
+   * The deadline is still the backstop — this only ever ends the phase *earlier*, and
+   * only when everybody present has pressed READY, so one impatient player cannot
+   * skip a reveal for the room.
+   */
+  isComplete(ctx) {
+    return everyoneReadyToAdvance(ctx.state, ctx.now);
   },
 
   onTimeout(ctx) {
@@ -152,8 +159,15 @@ export const roundResults: PhaseHandler = {
     }
   },
 
-  isComplete() {
-    return false;
+  /**
+   * A watching screen is finished when the room says it is.
+   *
+   * The deadline is still the backstop — this only ever ends the phase *earlier*, and
+   * only when everybody present has pressed READY, so one impatient player cannot
+   * skip a reveal for the room.
+   */
+  isComplete(ctx) {
+    return everyoneReadyToAdvance(ctx.state, ctx.now);
   },
 
   onTimeout(ctx) {

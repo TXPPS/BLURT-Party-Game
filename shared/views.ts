@@ -336,6 +336,18 @@ export interface SelfView {
   score: number;
   /** True while this device still needs to pass the 18+ gate. */
   needsAdultGate: boolean;
+  /**
+   * Whether this screen is one the room can finish early, and how far along it is.
+   *
+   * Lives on the self view rather than on each of the five watching views: it is the
+   * same question on all of them, and `skipReady` is the one part that differs per
+   * player. `skipTotal` counts people who are connected and named — anyone who could
+   * actually press the button — so the count never waits on a dropped phone.
+   */
+  skipOffered: boolean;
+  skipReady: boolean;
+  skipReadyCount: number;
+  skipTotal: number;
 }
 
 export type { PublicPlayer };

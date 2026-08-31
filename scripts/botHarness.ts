@@ -46,6 +46,13 @@ export interface BotBehaviour {
   reconnectAfterMs?: number;
   /** Blast the socket to trip the rate limiter. */
   floodOnJoin?: boolean;
+  /**
+   * Press READY on watching screens instead of relying on the host or the deadline.
+   * The room should then move on as soon as the last player has pressed it.
+   */
+  pressReady?: boolean;
+  /** Never press READY, so the phase has to fall back to its deadline. */
+  neverReady?: boolean;
 }
 
 export interface BotOptions {
@@ -345,6 +352,23 @@ export class Bot {
       if (advanceable.includes(state.phase)) {
         const key = `advance:${state.phase}:${this.phaseCounter()}`;
         this.once(key, () => setTimeout(() => this.send({ t: 'advance' }), 120));
+      }
+    }
+
+    // READY is open to everybody, host included. A bot told to press it does so on
+    // every watching screen; one told never to means the room has to wait out the
+    // deadline, which is the case worth proving does not hang.
+    if (behaviour.pressReady === true && behaviour.neverReady !== true) {
+      const watching: Phase[] = [
+        'ROUND_REVEAL',
+        'ROUND_RESULTS',
+        'STORY_UPDATE',
+        'FINAL_STORY',
+        'DRAWING_RESULTS',
+      ];
+      if (watching.includes(state.phase)) {
+        const key = `ready:${state.phase}:${this.phaseCounter()}`;
+        this.once(key, () => setTimeout(() => this.send({ t: 'advance_ready', ready: true }), 60));
       }
     }
   }

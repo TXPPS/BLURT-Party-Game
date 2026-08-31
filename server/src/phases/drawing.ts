@@ -36,7 +36,7 @@ import {
   selectShowcaseDrawings,
 } from '../finale.js';
 import { drawMs, voteMs } from '../match.js';
-import { findPlayer, setPhaseDeadline, shortenPhaseDeadline } from '../roomState.js';
+import { findPlayer, setPhaseDeadline, shortenPhaseDeadline , everyoneReadyToAdvance } from '../roomState.js';
 import type { PhaseContext, PhaseHandler } from '../types.js';
 
 export const drawingSetup: PhaseHandler = {
@@ -176,8 +176,15 @@ export const drawingResults: PhaseHandler = {
     }
   },
 
-  isComplete() {
-    return false;
+  /**
+   * A watching screen is finished when the room says it is.
+   *
+   * The deadline is still the backstop — this only ever ends the phase *earlier*, and
+   * only when everybody present has pressed READY, so one impatient player cannot
+   * skip a reveal for the room.
+   */
+  isComplete(ctx) {
+    return everyoneReadyToAdvance(ctx.state, ctx.now);
   },
 
   onTimeout(ctx) {

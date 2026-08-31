@@ -15,15 +15,17 @@ import { useRoom } from './net/useRoom.js';
 import { Home } from './screens/Home.js';
 import { Room } from './screens/Room.js';
 import { UnsupportedScreen, unsupportedBrowser } from './screens/ErrorScreen.js';
+import type { GameMode } from '@shared/types.js';
 
 interface Target {
   code: string;
   intent: 'create' | 'join';
+  mode: GameMode | null;
 }
 
 function targetFromUrl(): Target | null {
   const code = normalizeRoomCode(new URL(location.href).searchParams.get('room') ?? '');
-  return code.length === 4 ? { code, intent: 'join' } : null;
+  return code.length === 4 ? { code, intent: 'join', mode: null } : null;
 }
 
 export function App(): React.JSX.Element {
@@ -47,7 +49,7 @@ export function App(): React.JSX.Element {
   const [isHost, setIsHost] = useState(false);
   const audio = useAudio('classic', playsDramaticSfx(prefs, isHost));
   const onCue = useCallback((event: SfxEventId) => audio.cue(event), [audio]);
-  const room = useRoom(target?.code ?? null, target?.intent ?? 'join', onCue);
+  const room = useRoom(target?.code ?? null, target?.intent ?? 'join', target?.mode ?? null, onCue);
 
   const hostNow = room.state?.you.isHost ?? false;
   useEffect(() => setIsHost(hostNow), [hostNow]);
@@ -59,11 +61,11 @@ export function App(): React.JSX.Element {
     setTarget(null);
   }, []);
 
-  const enter = useCallback((code: string, intent: 'create' | 'join') => {
+  const enter = useCallback((code: string, intent: 'create' | 'join', mode: GameMode | null = null) => {
     const url = new URL(location.href);
     url.searchParams.set('room', code);
     history.pushState(null, '', url);
-    setTarget({ code, intent });
+    setTarget({ code, intent, mode });
   }, []);
 
   if (unsupportedBrowser()) return <UnsupportedScreen />;
@@ -71,7 +73,7 @@ export function App(): React.JSX.Element {
   if (target === null) {
     return (
       <div className="app">
-        <Home onCreate={(code) => enter(code, 'create')} onJoin={(code) => enter(code, 'join')} />
+        <Home onCreate={(code, mode) => enter(code, 'create', mode)} onJoin={(code) => enter(code, 'join')} />
       </div>
     );
   }

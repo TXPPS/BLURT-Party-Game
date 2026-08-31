@@ -171,6 +171,16 @@ export const FINAL_STORY_LINE_MS = 2_400;
 /** Grace added after the last final-story line before the finale/results move on. */
 export const FINAL_STORY_TAIL_MS = 6_000;
 
+/**
+ * The shortest a watching screen may last, however fast the room presses READY.
+ *
+ * Without a floor, a room that all taps at once can end a results screen inside a
+ * single broadcast-coalescing window — so the state carrying the score deltas is
+ * never sent, and everybody's total jumps with nothing on screen explaining it. A
+ * screen whose entire purpose is to be looked at has to actually be looked at.
+ */
+export const MIN_WATCH_MS = 1_500;
+
 /** Drawing setup ("you are the artist") card duration. */
 export const DRAWING_SETUP_MS = 6_000;
 

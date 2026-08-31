@@ -10,7 +10,7 @@
  * bytes of validator, and the server never trusts a type assertion.
  */
 
-import type { GameSettings, Phase, PublicPlayer, PublicRoom } from './types.js';
+import type { GameMode, GameSettings, Phase, PublicPlayer, PublicRoom } from './types.js';
 import type { PublicView, SelfView } from './views.js';
 
 export { PROTOCOL_VERSION } from './constants.js';
@@ -24,6 +24,15 @@ export interface CreateRoomMessage {
   t: 'create_room';
   protocolVersion: number;
   hostName?: string;
+  /**
+   * Content mode, chosen on the home screen before anybody picks a name.
+   *
+   * It has to arrive here rather than being set later in the lobby: the name
+   * generator and the avatar picker both branch on it, and identity is chosen before
+   * the lobby exists. Setting it afterwards left the host — the one person who
+   * *chose* Crude — stuck with a Classic name and a Classic avatar.
+   */
+  mode?: GameMode;
 }
 
 export interface JoinRoomMessage {
@@ -36,6 +45,12 @@ export interface IdentifyMessage {
   t: 'identify';
   name: string;
   avatarId: string;
+}
+
+/** "I have finished looking at this screen." Only meaningful on watching phases. */
+export interface AdvanceReadyMessage {
+  t: 'advance_ready';
+  ready: boolean;
 }
 
 export interface SetReadyMessage {
@@ -125,6 +140,7 @@ export type ClientMessage =
   | JoinRoomMessage
   | IdentifyMessage
   | SetReadyMessage
+  | AdvanceReadyMessage
   | UpdateSettingsMessage
   | KickPlayerMessage
   | StartGameMessage

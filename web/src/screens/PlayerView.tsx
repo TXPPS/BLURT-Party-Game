@@ -16,6 +16,7 @@ import {
   DrawingHold,
   GuessForm,
   SpectatorBeat,
+  ReadyToAdvance,
   SubmissionTally,
   listNames,
   useTimerSounds,
@@ -35,6 +36,7 @@ export interface PlayerViewProps {
   onGuess(roundId: string, text: string): void;
   onDrawingVote(roundId: string, optionId: string): void;
   onSound(event?: 'ui_click' | 'submit' | 'vote_cast' | 'timer_warning' | 'timer_out'): void;
+  onAdvanceReady(ready: boolean): void;
 }
 
 
@@ -63,7 +65,10 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'GAME_SETUP':
       return (
         <div className="stack center">
-          <PhaseTitle eyebrow="Sealed" title="A story has been chosen" sub="You will not be told which one." />
+          <div className="row row--between">
+            <PhaseTitle eyebrow="Sealed" title="A story has been chosen" sub="You will not be told which one." />
+            {timer}
+          </div>
           <Waiting message="Shuffling" detail={`${view.totalRounds} rounds. Nobody knows what happens next.`} />
         </div>
       );
@@ -94,7 +99,10 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'ROUND_REVEAL':
       return (
         <div className="stack">
-          <PhaseTitle eyebrow={`Round ${view.roundNumber} of ${view.totalRounds}`} title="Read them" />
+          <div className="row row--between">
+            <PhaseTitle eyebrow={`Round ${view.roundNumber} of ${view.totalRounds}`} title="Read them" />
+            {timer}
+          </div>
           <Card sunken>
             <p className="lead breakable">{view.prompt}</p>
           </Card>
@@ -109,7 +117,8 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
               </div>
             ))}
           </div>
-          <p className="faint center">Voting opens in a second.</p>
+          <p className="faint center">Voting opens when everybody has read them.</p>
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
         </div>
       );
 
@@ -161,12 +170,16 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'ROUND_RESULTS':
       return (
         <div className="stack">
-          <PhaseTitle
-            eyebrow={`Round ${view.roundNumber} of ${view.totalRounds}`}
-            title={view.nobodyVoted ? 'Nobody voted' : view.wasCoinFlip ? 'It was a tie' : 'Results'}
-          />
+          <div className="row row--between">
+            <PhaseTitle
+              eyebrow={`Round ${view.roundNumber} of ${view.totalRounds}`}
+              title={view.nobodyVoted ? 'Nobody voted' : view.wasCoinFlip ? 'It was a tie' : 'Results'}
+            />
+            {timer}
+          </div>
           <Scoreboard rows={view.leaderboard} />
           <p className="faint center">The full breakdown is below.</p>
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
         </div>
       );
 
@@ -174,13 +187,17 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'FINAL_STORY':
       return (
         <div className="stack center">
-          <PhaseTitle
-            eyebrow="The story so far"
-            title={view.phase === 'FINAL_STORY' ? 'The whole thing' : 'What you have done'}
-          />
+          <div className="row row--between">
+            <PhaseTitle
+              eyebrow="The story so far"
+              title={view.phase === 'FINAL_STORY' ? 'The whole thing' : 'What you have done'}
+            />
+            {timer}
+          </div>
           {/* Deliberately not "look up": plenty of groups play with no shared screen
               at all, and the condensed group view is right below these words. */}
           <Waiting message="Reading it out" detail="This is the good bit." />
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
         </div>
       );
 
@@ -286,9 +303,13 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'DRAWING_RESULTS':
       return (
         <div className="stack">
-          <PhaseTitle eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`} title="How that went" />
+          <div className="row row--between">
+            <PhaseTitle eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`} title="How that went" />
+            {timer}
+          </div>
           <Scoreboard rows={view.leaderboard} />
           <p className="faint center">The full breakdown is below.</p>
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
         </div>
       );
 

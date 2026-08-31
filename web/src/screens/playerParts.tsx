@@ -304,3 +304,40 @@ export function SubmissionTally({
     </>
   );
 }
+
+/**
+ * READY on a watching screen, with a live count of who the room is waiting for.
+ *
+ * The count is the point. Without it a skip button is a mystery — you press it and
+ * nothing happens, because five other people have not. Naming the number turns a dead
+ * wait into a visible one.
+ *
+ * The phase still ends on its own deadline regardless, so this only ever makes a
+ * screen shorter, and only when everybody agrees.
+ */
+export function ReadyToAdvance({
+  you,
+  onReady,
+}: {
+  you: StateMessage['you'];
+  onReady(ready: boolean): void;
+}): React.JSX.Element | null {
+  if (!you.skipOffered) return null;
+  const waiting = Math.max(0, you.skipTotal - you.skipReadyCount);
+
+  return (
+    <div className="ready">
+      <ActionButton
+        variant={you.skipReady ? 'ghost' : 'primary'}
+        block
+        onClick={() => onReady(!you.skipReady)}
+      >
+        {you.skipReady ? 'WAITING FOR THE REST' : 'READY'}
+      </ActionButton>
+      <p className="ready__count" aria-live="polite">
+        {you.skipReadyCount} of {you.skipTotal} ready
+        {waiting > 0 && you.skipReady ? ' · we go when everybody is' : ''}
+      </p>
+    </div>
+  );
+}

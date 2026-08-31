@@ -341,6 +341,9 @@ export class RoomDO implements DurableObject {
       logPhaseExit(room, room.phase, step === 0 ? reason : 'auto', now, this.phaseEnteredAt);
 
       room.phase = target;
+      // Readiness is per screen. Carrying it across would let a player who pressed
+      // READY on the reveal silently skip the results as well.
+      room.readyToAdvance = [];
       clearTimer(room, 'phase');
       PHASE_HANDLERS[target].onEnter(control);
       this.phaseEnteredAt = now;
@@ -447,6 +450,13 @@ export class RoomDO implements DurableObject {
       player,
       effects: this.effects(),
       goTo: (phase) => this.runTransitions(now, 'host', (ctx) => ctx.goTo(phase)),
+      settlePhase: () => {
+        this.runTransitions(now, 'all-submitted', (ctx) => {
+          const handler = PHASE_HANDLERS[room.phase];
+          handler.onPresenceChange?.(ctx);
+          if (handler.isComplete(ctx)) handler.onTimeout(ctx);
+        });
+      },
       advancePhase: (reason = 'all-submitted') => {
         const handler = PHASE_HANDLERS[room.phase];
         this.runTransitions(now, reason, (ctx) => {

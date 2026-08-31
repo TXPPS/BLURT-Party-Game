@@ -11,6 +11,7 @@ import type { ClientMessage, ErrorCode, PrivateMessage, ServerMessage, StateMess
 import type { SfxEventId } from '@shared/sfx.js';
 import type { Phase } from '@shared/types.js';
 import { RoomSocket, type ConnectionStatus } from './socket.js';
+import type { GameMode } from '@shared/types.js';
 import { clearSession } from './session.js';
 
 export interface Toast {
@@ -51,6 +52,7 @@ const RING_QUANTUM_MS = 500;
 export function useRoom(
   code: string | null,
   intent: 'create' | 'join',
+  createMode: GameMode | null,
   onSfx: (event: SfxEventId) => void,
 ): RoomHandle {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -79,7 +81,7 @@ export function useRoom(
   useEffect(() => {
     if (code === null) return;
 
-    const socket = new RoomSocket(code, intent, {
+    const socket = new RoomSocket(code, intent, createMode, {
       onStatus: setStatus,
       onMessage: (message: ServerMessage) => {
         switch (message.t) {

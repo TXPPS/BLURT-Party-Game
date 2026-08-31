@@ -6,6 +6,7 @@
  * Object itself concerned only with sockets, storage and alarms.
  */
 
+import { MIN_WATCH_MS } from '../../shared/constants.js';
 import {
   DISCONNECT_GRACE_MS,
   HOST_MIGRATION_DELAY_MS,
@@ -38,6 +39,7 @@ export function createRoomState(code: string, now: number): RoomState {
     recentStoryIds: [],
     seq: 0,
     phaseDurationMs: 0,
+    readyToAdvance: [],
     closed: false,
   };
 }
@@ -88,6 +90,37 @@ export function isEligible(player: ServerPlayer, now: number): boolean {
 
 export function eligiblePlayers(state: RoomState, now: number): ServerPlayer[] {
   return state.players.filter((p) => isEligible(p, now));
+}
+
+/**
+ * True when every player who could press READY has.
+ *
+ * "Could press" means connected and identified — a dropped phone or somebody still on
+ * the name screen must never be able to hold a reveal open, which is the failure mode
+ * that makes skip buttons worse than no skip button. Returns false for an empty room
+ * so a deserted phase falls through to its deadline rather than skipping instantly.
+ */
+export function phaseElapsedMs(state: RoomState, now: number): number {
+  const deadline = state.timers.phase;
+  if (deadline === undefined || state.phaseDurationMs <= 0) return Number.POSITIVE_INFINITY;
+  return Math.max(0, state.phaseDurationMs - (deadline - now));
+}
+
+export function everyoneReadyToAdvance(state: RoomState, now: number): boolean {
+  // A screen has to have been on screen. See MIN_WATCH_MS.
+  if (phaseElapsedMs(state, now) < MIN_WATCH_MS) return false;
+  const waiting = state.players.filter((p) => p.connected && p.identified && !p.kicked);
+  if (waiting.length === 0) return false;
+  return waiting.every((p) => state.readyToAdvance.includes(p.id));
+}
+
+/** How many are ready, and how many the room is waiting on. */
+export function advanceReadyCount(state: RoomState): { ready: number; total: number } {
+  const waiting = state.players.filter((p) => p.connected && p.identified && !p.kicked);
+  return {
+    ready: waiting.filter((p) => state.readyToAdvance.includes(p.id)).length,
+    total: waiting.length,
+  };
 }
 
 export function connectedPlayers(state: RoomState): ServerPlayer[] {

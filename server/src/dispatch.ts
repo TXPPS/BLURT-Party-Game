@@ -75,6 +75,14 @@ export function dispatch(room: RoomDO, socket: WebSocket, raw: string | ArrayBuf
           state.hostId = player.id;
           player.isHost = true;
         }
+        // Set before the host is told anything, so the very first state they see
+        // already carries the mode their name and avatar pickers depend on.
+        if (message.mode !== undefined) {
+          state.settings.mode = message.mode;
+          // They cleared the 18+ gate on the home screen to get here; showing it
+          // again the moment they arrive is the same question twice.
+          if (message.mode === 'crude') player.adultAcknowledged = true;
+        }
         if (message.hostName !== undefined) {
           const clean = sanitizeText(message.hostName, { maxLength: NAME_MAX_LENGTH });
           if (clean.ok) player.name = clean.value;

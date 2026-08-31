@@ -42,6 +42,23 @@ const finalResults: PhaseHandler = {
   hostCanAdvance: false,
 };
 
+/**
+ * The screens players sit and watch rather than act on.
+ *
+ * These are the phases where a room can genuinely be finished before the clock is:
+ * everybody has read the reveal, or seen the scores, and is waiting on a timer for no
+ * reason. Both the host's force-advance and the per-player READY apply here and
+ * nowhere else — you cannot "be ready" during a phase whose whole point is that you
+ * are still writing something.
+ */
+export const SKIPPABLE_PHASES = [
+  'ROUND_REVEAL',
+  'ROUND_RESULTS',
+  'STORY_UPDATE',
+  'FINAL_STORY',
+  'DRAWING_RESULTS',
+] as const satisfies readonly Phase[];
+
 export const PHASE_HANDLERS: Readonly<Record<Phase, PhaseHandler>> = {
   LOBBY: lobby,
   GAME_SETUP: gameSetup,
@@ -89,7 +106,10 @@ export const ALLOWED_PHASES: Readonly<Record<ClientMessageType, readonly Phase[]
   submit_drawing_vote: ['DRAWING_VOTE'],
 
   // Host-gated screens. Every one of them also auto-advances on its own deadline.
-  advance: ['ROUND_REVEAL', 'ROUND_RESULTS', 'STORY_UPDATE', 'FINAL_STORY', 'DRAWING_RESULTS'],
+  advance: SKIPPABLE_PHASES,
+  // The same screens, from the other direction: anybody can say they are done, and
+  // the phase ends early once everybody has.
+  advance_ready: SKIPPABLE_PHASES,
 
   play_again: ['FINAL_RESULTS'],
   return_to_lobby: ['FINAL_RESULTS', 'FINAL_STORY', 'DRAWING_RESULTS'],

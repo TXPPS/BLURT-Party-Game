@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { accentFor } from '../brand.js';
-import { findAvatar } from '../avatars/registry.js';
+import { resolveAvatar } from '../avatars/registry.js';
 import type { PublicPlayer } from '@shared/types.js';
 
 /* ------------------------------------------------------------------ *
@@ -27,7 +27,7 @@ export function AvatarBadge({
   size?: 'sm' | 'md' | 'lg' | 'xl';
   seed?: string;
 }): React.JSX.Element {
-  const entry = findAvatar(avatarId);
+  const entry = resolveAvatar(avatarId, seed ?? '');
   const Icon = entry?.Component;
   const accent = accentFor(seed ?? avatarId ?? name);
   const className = `avatar${size === 'sm' ? ' avatar--sm' : size === 'lg' ? ' avatar--lg' : size === 'xl' ? ' avatar--xl' : ''}`;

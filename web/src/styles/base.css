@@ -393,6 +393,47 @@ ul {
 }
 
 /* ------------------------------------------------------------------ *
+ * READY control on the watching screens.
+ * ------------------------------------------------------------------ */
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+.watchfoot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  margin-top: var(--s-3);
+}
+
+.watchfoot__count {
+  margin: 0;
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-faint);
+}
+
+.watchfoot__count strong {
+  font-family: var(--font-display);
+  font-size: var(--t-h3);
+  color: var(--c-accent);
+}
+
+.ready__count {
+  margin: 0;
+  text-align: center;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-faint);
+}
+
+/* ------------------------------------------------------------------ *
  * End-of-match gallery — every drawing, including the ones the finale
  * had no time to show.
  * ------------------------------------------------------------------ */

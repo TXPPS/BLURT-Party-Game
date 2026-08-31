@@ -11,10 +11,12 @@ import { SCORE_REASON_LABELS, type ScoreEvent } from '../../shared/scoring.js';
 import type { PlayerRole, PublicRoom } from '../../shared/types.js';
 import type { Deadline, LeaderboardRow, ScoreDelta, SelfView } from '../../shared/views.js';
 import {
+  advanceReadyCount,
   findPlayer,
   roomExpiresAt,
 } from './roomState.js';
 import { currentDrawingRecord, drawingForArtist } from './finale.js';
+import { SKIPPABLE_PHASES } from './phases/index.js';
 import { storyById } from './story.js';
 import type { MatchupRecord, RoomState, ServerPlayer } from './types.js';
 
@@ -151,11 +153,16 @@ export function roleFor(state: RoomState, player: ServerPlayer): PlayerRole {
 }
 
 export function buildSelfView(state: RoomState, player: ServerPlayer): SelfView {
+  const skip = advanceReadyCount(state);
   return {
     playerId: player.id,
     isHost: state.hostId === player.id,
     role: roleFor(state, player),
     score: player.score,
     needsAdultGate: state.settings.mode === 'crude' && !player.adultAcknowledged,
+    skipOffered: (SKIPPABLE_PHASES as readonly string[]).includes(state.phase),
+    skipReady: state.readyToAdvance.includes(player.id),
+    skipReadyCount: skip.ready,
+    skipTotal: skip.total,
   };
 }

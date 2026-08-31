@@ -156,6 +156,7 @@ export function Room(props: RoomProps): React.JSX.Element {
         privateData={room.privateData}
         serverNow={room.serverNow}
         onSound={onSound}
+        onAdvanceReady={(ready) => room.send({ t: 'advance_ready', ready })}
         onAnswer={(roundId, text) => room.send({ t: 'submit_answer', roundId, text })}
         onVote={(roundId, answerId) => room.send({ t: 'submit_vote', roundId, answerId })}
         onDrawing={(roundId, strokesPngDataUrl) =>

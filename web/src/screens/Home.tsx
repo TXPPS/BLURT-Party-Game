@@ -11,15 +11,24 @@ import { brand } from '../brand.js';
 import { Button, Card } from '../components/kit.js';
 import { lookupRoom } from '../net/socket.js';
 import { parseRoomCode } from '@shared/roomCode.js';
+import type { GameMode } from '@shared/types.js';
 
 export interface HomeProps {
-  onCreate(code: string): void;
+  onCreate(code: string, mode: GameMode): void;
   onJoin(code: string): void;
   /** Prefilled from `?room=CODE` on a shared link. */
   initialCode?: string;
 }
 
-type Stage = 'home' | 'join';
+/**
+ * `mode` sits between `home` and creating the room on purpose.
+ *
+ * Content mode used to be a lobby setting, which put it *after* the name and avatar
+ * pickers — so the host, the one person who deliberately chose Crude, was the only
+ * player who could not have a crude name or a crude face. Asking here means the
+ * choice is made before any identity exists, for the host and for everyone joining.
+ */
+type Stage = 'home' | 'mode' | 'gate' | 'join';
 
 export function Home({ onCreate, onJoin, initialCode }: HomeProps): React.JSX.Element {
   const [stage, setStage] = useState<Stage>(initialCode === undefined ? 'home' : 'join');
@@ -31,14 +40,14 @@ export function Home({ onCreate, onJoin, initialCode }: HomeProps): React.JSX.El
     document.title = `${brand.name} — ${brand.tagline}`;
   }, []);
 
-  const create = async (): Promise<void> => {
+  const create = async (mode: GameMode): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
       const response = await fetch('/api/rooms', { method: 'POST' });
       if (!response.ok) throw new Error('room service unavailable');
       const body = (await response.json()) as { code: string };
-      onCreate(body.code);
+      onCreate(body.code, mode);
     } catch {
       setError('Could not start a room. Check your connection and try again.');
       setBusy(false);
@@ -84,7 +93,7 @@ export function Home({ onCreate, onJoin, initialCode }: HomeProps): React.JSX.El
           <Card tilt="l">
             <div className="stack">
               <p className="lead">{brand.blurb}</p>
-              <Button variant="primary" block onClick={() => void create()} disabled={busy}>
+              <Button variant="primary" block onClick={() => setStage('mode')} disabled={busy}>
                 {busy ? 'Finding a room…' : 'START A ROOM'}
               </Button>
               <Button
@@ -97,6 +106,45 @@ export function Home({ onCreate, onJoin, initialCode }: HomeProps): React.JSX.El
                 JOIN WITH A CODE
               </Button>
               <p className="faint center">2–10 players · one device each · no accounts, ever</p>
+            </div>
+          </Card>
+        ) : stage === 'mode' ? (
+          <Card tilt="r">
+            <div className="stack">
+              <p className="eyebrow">Pick your poison</p>
+              <h2 className="card__title">How filthy?</h2>
+
+              <Button variant="primary" block onClick={() => void create('classic')} disabled={busy}>
+                CLASSIC
+              </Button>
+              <p className="faint center">Sharp, silly, safe for the room. Nobody has to explain anything.</p>
+
+              <Button variant="danger" block onClick={() => setStage('gate')} disabled={busy}>
+                CRUDE · 18+
+              </Button>
+              <p className="faint center">Adult, vulgar, frequently disgusting. Different stories, names and faces.</p>
+
+              <Button block onClick={() => { setStage('home'); setError(null); }} disabled={busy}>
+                BACK
+              </Button>
+            </div>
+          </Card>
+        ) : stage === 'gate' ? (
+          <Card tilt="l">
+            <div className="stack">
+              <div className="hazard" aria-hidden="true" />
+              <h2 className="card__title">CRUDE MODE — 18+</h2>
+              <p className="lead">
+                The prompts, the stories, the names and the pictures are adult, vulgar and
+                frequently disgusting.
+              </p>
+              <Button variant="danger" block onClick={() => void create('crude')} disabled={busy}>
+                {busy ? 'Finding a room…' : 'I AM 18 OR OVER — LET ME IN'}
+              </Button>
+              <Button variant="ghost" block onClick={() => setStage('mode')} disabled={busy}>
+                NO THANKS
+              </Button>
+              <div className="hazard" aria-hidden="true" />
             </div>
           </Card>
         ) : (

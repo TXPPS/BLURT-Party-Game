@@ -73,6 +73,26 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
       </ActionButton>
     ) : null;
 
+  /**
+   * The footer on every screen the room is only watching.
+   *
+   * Three things that belong together: how long is left, how many people have said
+   * they are done, and the host's override. Previously this was the host button alone,
+   * so a room waiting on a timer had no idea how long, and a room waiting on one slow
+   * reader had no idea who.
+   */
+  const watchFooter = condensed ? null : (
+    <div className="watchfoot">
+      {timer}
+      {state.you.skipOffered && state.you.skipTotal > 0 && (
+        <p className="watchfoot__count" aria-live="polite">
+          <strong>{state.you.skipReadyCount}</strong> of {state.you.skipTotal} ready
+        </p>
+      )}
+      {advance}
+    </div>
+  );
+
   switch (view.phase) {
     case 'LOBBY':
       return (
@@ -188,7 +208,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
           {view.phase === 'ROUND_VOTE' ? (
             <Progress done={view.votesIn} total={view.votersTotal} label="Votes in" />
           ) : (
-            <div className="row row--center">{advance}</div>
+            watchFooter
           )}
         </div>
       );
@@ -235,7 +255,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             ))}
           </div>
           <Scoreboard rows={view.leaderboard} />
-          <div className="row row--center">{advance}</div>
+          {watchFooter}
         </div>
       );
 
@@ -251,7 +271,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
               {...(props.onCue !== undefined && !condensed ? { onCue: props.onCue } : {})}
             />
           ))}
-          <div className="row row--center">{advance}</div>
+          {watchFooter}
         </div>
       );
 
@@ -264,7 +284,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             lineDelayMs={view.lineDelayMs}
             {...(props.onCue !== undefined && !condensed ? { onCue: props.onCue } : {})}
           />
-          <div className="row row--center">{advance}</div>
+          {watchFooter}
         </div>
       );
 
@@ -375,7 +395,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             </Card>
           )}
           <Scoreboard rows={view.leaderboard} />
-          <div className="row row--center">{advance}</div>
+          {watchFooter}
         </div>
       );
 

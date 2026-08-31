@@ -183,6 +183,15 @@ export interface RoomState {
   seq: number;
   /** Phase deadline duration, so the client can draw a correctly-proportioned ring. */
   phaseDurationMs: number;
+  /**
+   * Players who have pressed READY on the current watching phase.
+   *
+   * Cleared on every phase entry, which is why it cannot reuse `player.ready` — that
+   * one is lobby readiness and is meant to persist. A phase ends early only when
+   * *everyone* present is in here; one impatient person cannot skip a reveal for the
+   * room, and the phase deadline is still the backstop that guarantees it ends.
+   */
+  readyToAdvance: string[];
   /** Set when the room has been destroyed and should refuse everything. */
   closed: boolean;
 }

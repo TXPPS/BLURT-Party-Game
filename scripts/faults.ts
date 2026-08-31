@@ -270,6 +270,54 @@ export const FAULT_CASES: readonly FaultCase[] = [
     },
   },
   {
+    // Everybody presses READY, so every watching screen ends the moment the last
+    // person does rather than sitting on its deadline.
+    config: {
+      label: 'ready: everybody skips',
+      players: 4, rounds: 2, mode: 'classic', drawing: false, timer: 'relaxed',
+      behaviours: {
+        0: { pressReady: true }, 1: { pressReady: true },
+        2: { pressReady: true }, 3: { pressReady: true },
+      },
+      // RELAXED would take far longer than this if the skips were not working, which
+      // is what makes the timeout itself the assertion.
+      timeoutMs: 120_000,
+    },
+  },
+  {
+    // Nobody presses READY. The host's CONTINUE must still move the room on.
+    config: {
+      label: 'ready: host overrides a room that never presses it',
+      players: 4, rounds: 2, mode: 'classic', drawing: false, timer: 'fast',
+      behaviours: { 1: { neverReady: true }, 2: { neverReady: true }, 3: { neverReady: true } },
+      expect: expectNoError('WRONG_PHASE', 'host advance still works'),
+    },
+  },
+  {
+    // One holdout. The room must not hang: the deadline is still the backstop.
+    config: {
+      label: 'ready: one refusenik cannot hang the room',
+      players: 4, rounds: 2, mode: 'classic', drawing: false, timer: 'fast',
+      behaviours: {
+        0: { pressReady: true }, 1: { pressReady: true },
+        2: { pressReady: true }, 3: { neverReady: true },
+      },
+    },
+  },
+  {
+    // Somebody drops while the rest are waiting on them. A dead phone must not be
+    // counted as a player the room is still waiting for.
+    config: {
+      label: 'ready: a dropped player does not block the count',
+      players: 4, rounds: 2, mode: 'classic', drawing: false, timer: 'fast',
+      behaviours: {
+        0: { pressReady: true }, 1: { pressReady: true }, 2: { pressReady: true },
+        3: { disconnectOnPhase: 'ROUND_REVEAL' },
+      },
+      timeoutMs: 180_000,
+    },
+  },
+  {
     config: {
       label: 'full house: 10 players',
       players: 10, rounds: 3, mode: 'classic', drawing: true, timer: 'fast',
