@@ -382,6 +382,11 @@ a handful of `requestAnimationFrame` loops.
 | **Drawing transport** | A rasterised PNG, not a stroke list, so a drawing cannot be replayed or re-scaled after submission. Undo works client-side only, before submitting. |
 | **Blocklist false positive** | The place name "Niger" cannot appear in generated content, a consequence of collapsing repeated letters to defeat elongation. It only gates content we author ourselves. |
 | **Single region per room** | A room lives wherever its Durable Object was created. A group spread across continents will have one player with worse latency. |
+| **Perfect-bonus denominator drift** | The finale counts eligible voters at *resolution* time and at *guess* time separately. If somebody's 90-second grace window lapses between the two, the "everyone got it" bonus is measured against a slightly different denominator. Worst case is a missed 140-point bonus, never a crash. |
+| **Ten decoys is a long list** | At ten players the drawing vote shows the real prompt plus nine decoys. Playable on a 320px screen — it is asserted not to overflow — but it is the screen most likely to feel cramped and to invite a mis-tap. |
+| **The settings panel is the plain one** | Every other screen carries the printed-card identity. The host's settings panel is a stack of button groups that would not look out of place in any app. It works; it just does not have a voice. |
+| **UI coverage is narrower than protocol coverage** | The bot harness exercises the protocol exhaustively — 22 fault cases, every player count, both modes. The browser sweep covers every screen and the full match arc, but not every interaction on every screen. Two of this build's three worst bugs were UI-only, so that gap is the one worth closing next. |
+| **Room codes are guessable** | Four letters from a 923-word list. Somebody determined will find live rooms. The blast radius is small on purpose — they can join a lobby and be a nuisance, the host can remove them, a started game refuses joins, and rooms expire — but it is a real trade, made in exchange for a code you can shout across a room. |
 
 ---
 

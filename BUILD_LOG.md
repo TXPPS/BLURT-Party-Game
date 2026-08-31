@@ -639,6 +639,43 @@ KNOWN LIMITATIONS with a one-line reason).
 
 ---
 
+## FINAL INTEGRATION REVIEW
+
+**Driving role:** Final Integration Reviewer
+
+Reviewed adversarially against the brief, not against the build log. Verdict: **ship**.
+
+**What convinced me.** The three worst defects in this build — no vote could be
+submitted, no answer could be submitted, and THE HOUSE played in every four-player
+game — were all invisible to a type-checker, a linter and 207 unit tests. Each was
+found by running the thing: two by a bot harness written before any UI existed, one
+by looking at a screenshot of a results screen. The process that found them is in the
+repo and runs on one command, which matters more than the fixes.
+
+**What I pushed back on.** Two things were argued down and then argued back:
+
+1. *"The balance test passes, so the finale constants are fine."* It passes because
+   the constants were tuned to make it pass. The reviewer's question is whether the
+   tuning is principled or fitted. It is principled — the standard-round constants
+   are untouched, the finale scales with room size for an independently stated pacing
+   reason, and the measured share holds across every player count from 3 to 10 rather
+   than at the three the test asserts. Accepted.
+2. *"The visual audit is done, the screenshots look right."* Screenshots cannot prove
+   the absence of overflow or a 38px button. The audit was made an assertion — live
+   DOM checks at every breakpoint plus 33 contrast unit tests — and immediately found
+   three undersized targets nobody had noticed by eye. Accepted after that change.
+
+**What I am still uneasy about**, and which is in KNOWN LIMITATIONS rather than
+fixed: UI interaction coverage is narrower than protocol coverage. Two of the three
+S1 bugs were UI-only. The browser sweep covers every screen and the full match arc,
+but not every interaction on every screen. That is the first thing I would fund next.
+
+**What I am not uneasy about.** Room codes being guessable, no persistence, seven
+stories, and a silent music channel are all deliberate, documented, and correct for
+what this is.
+
+---
+
 ## OPEN ISSUES
 
 | ID | Sev | Description | Fix | Status |
@@ -671,6 +708,15 @@ KNOWN LIMITATIONS with a one-line reason).
 | I26 | S2 | A host who declined the 18+ gate was locked out of their own room, with no way back to the setting they had just changed. | For the host, declining reverts the room to Classic. | ✅ fixed |
 | I27 | S3 | The canvas exported at `devicePixelRatio` (1600×1200 on a retina phone) instead of the fixed 800×600 the transport spec sets, and a `pointerleave` handler chopped strokes short mid-drag. | Downscale through an offscreen canvas; drop the handler (pointer capture already covers it). | ✅ fixed |
 | I28 | S3 | Story sections declared `audioCue`s that nothing ever played, and every UI interaction made the same click. | Cues fire as sections reveal; distinct sounds for join/ready/submit/vote, plus local timer warnings. | ✅ fixed |
+| I29 | S2 | An artist who never submitted produced an `<img>` pointing at a 404, so the results screen showed the browser's broken-image icon. | Empty `imageUrl` server-side; a deliberate note client-side. | ✅ fixed |
+| I30 | S2 | Every timed-out guesser received the **same** house decoy — the seed came from their id's *length*, and every id is a same-length UUID. | Seeded per player and de-duplicated against the board. | ✅ fixed |
+| I31 | S2 | The final leaderboard rendered **upside-down** under `prefers-reduced-motion`. | The reveal fills from the bottom; the list stays in rank order. | ✅ fixed |
+| I32 | S2 | Dramatic stings defaulted to off on every device including the host's, so out of the box nobody heard them. | Tri-state preference: "decide for me" → on for the host or big screen. | ✅ fixed |
+| I33 | S3 | The round −/+ stepper was lossy under rapid taps (both taps read the same stale server value). | The stepper leads the server by one tap locally; the server still re-clamps. | ✅ fixed |
+| I34 | S3 | Three undersized tap targets (38×45 steppers, 25px swatches at 320px) that looked fine to the eye. | 44px floor on both. Found by the automated pass. | ✅ fixed |
+| I35 | S3 | Two crude decoration CSS classes were never used by any component. | Removed; the censor-bar motif now styles the redacted locked story sections. | ✅ fixed |
+| I36 | S3 | The finale's perfect-bonus denominator can drift if a grace window lapses between the guess and the resolve. | Worst case is a missed bonus, never a crash. | 📄 documented |
+| I37 | S3 | UI interaction coverage is narrower than protocol coverage; two of three S1 bugs were UI-only. | Browser sweep covers every screen and the full arc, not every interaction. | 📄 documented |
 
 Severity scale: **S1** ship-blocker · **S2** major · **S3** minor · **S4** polish
 
