@@ -273,7 +273,7 @@ one 5-round match to exercise the story-update cadence.
 16/16 passed.
 ```
 
-### Fault injection — every case in the brief
+### Fault injection — **22/22 passed**
 
 | Case | Result |
 |---|---|
@@ -299,6 +299,10 @@ one 5-round match to exercise the story-update cadence.
 | 1 round through a 10-slot story | ✓ house fills the rest, story reads complete |
 | crude mode, 8 players, finale | ✓ |
 | full house: 10 players | ✓ |
+
+```
+22/22 passed.
+```
 
 Malformed JSON, binary frames, wrong protocol version, duplicate names, oversized
 names, emoji/RTL/Zalgo names, whitespace-only input, joining a nonexistent room, a
@@ -358,6 +362,28 @@ whether the new palette is still legible.
 | V12 | error screens | Every one said the same sentence twice: the server sent `"title. body"` and the client already renders the title from `ERROR_COPY`. | The server sends the body only. |
 | V13 | error screens | `RETRYABLE` was configured but `onRetry` was never wired, so the retry path was dead. | Wired to a reload. |
 | V14 | **round results (4 players)** | A third answer credited to **THE HOUSE** — in a four-player game, where the house should never play. | A genuine gameplay bug, not a visual one. See I17. |
+| V15 | identify (320px) | The avatar grid silently fell back to **two** columns, making the picker a third of a page longer than it needed to be. The `minmax` floor did not account for the page + card padding chain. | 76px floor; three across at 320px. |
+| V16 | **final results** | An artist who never drew produced an `<img>` pointing at a URL that 404s, so the screen showed the browser's **broken-image icon**. | The server sends an empty `imageUrl`; the client renders a deliberate note ("…drew nothing at all. Bold. Minimalist. Impossible to guess."). |
+| V17 | **drawing vote** | Three players who timed out on a decoy all received the **same** house decoy, so the vote screen listed one line three times. The seed was derived from the player id's *length*, and every id is a UUID of the same length. | Seeded per player, and de-duplicated against everything already on the board. |
+| V18 | lobby settings | The round −/+ steppers measured 38×45, and at 320px eight forced swatch columns squeezed each colour to 25px. | Both hold a 44px floor. Caught by the automated pass, not by eye. |
+| V19 | lobby (10 players) | Join toasts stacked over the host's settings panel. | In the lobby the roster *is* the feedback, so arrivals are only announced once a match is under way. |
+| V20 | lobby (condensed strip) | The group view repeated the full roster the player's own controls already showed. | The strip keeps the room code and join URL; the roster is dropped. |
+| V21 | lobby settings | The round **−/+ stepper was lossy under rapid taps**: both taps computed from the same not-yet-updated server value, so the second was swallowed and the number visibly lagged a thumb. Found because a scripted scene set 3 rounds and got 3 back after two decrements. | The stepper leads the server by one tap with a local value. Every other control stays a straight send-and-render; the server still re-clamps whatever arrives. |
+
+### Automated layout pass — final result
+
+The last sweep across **320 / 390 / 768 / 1280 / 1920** reported:
+
+- **zero** horizontal overflow, on any screen, at any width
+- **zero** controls without an accessible name
+- **zero** images without `alt`
+- **zero** cases of player text overflowing its container (long names, 160-character answers)
+- three undersized tap targets — V18 above, now fixed
+
+The tap-target findings are worth dwelling on: both were controls a person would
+look at and call fine. A 38×45 button is not visibly wrong. Measuring it is the only
+way to know, which is the argument for making the audit an assertion rather than a
+judgement call.
 
 **V14 is the case for doing this phase at all.** It is a rules bug that no unit test
 caught, that the bot harness did not assert, and that is invisible in the source

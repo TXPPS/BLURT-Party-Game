@@ -508,10 +508,18 @@ button.answer:active:not(:disabled) {
   vertical-align: middle;
 }
 
+/**
+ * A section the room has not reached yet.
+ *
+ * The text is already redacted server-side — these are literal block characters, not
+ * blurred prose — so this is styling a censor bar rather than obscuring something.
+ * That is deliberate: blurring real text would leave it one screenshot away.
+ */
 .story__locked {
-  opacity: 0.28;
-  filter: blur(3px);
+  opacity: 0.5;
   user-select: none;
+  letter-spacing: -0.08em;
+  color: var(--c-ink-faint);
 }
 
 /* ------------------------------------------------------------------ *
@@ -838,19 +846,10 @@ button.answer:active:not(:disabled) {
   transform: rotate(6deg);
 }
 
-.censor {
-  display: inline-block;
-  background: var(--c-ink);
+/* Crude mode leans into the censor-bar motif: the redaction becomes solid ink. */
+:root[data-mode='crude'] .story__locked {
   color: var(--c-ink);
-  border-radius: 3px;
-  user-select: none;
-}
-
-.scribble {
-  position: absolute;
-  pointer-events: none;
-  opacity: 0.5;
-  color: var(--c-grape);
+  opacity: 0.75;
 }
 
 /* ------------------------------------------------------------------ *

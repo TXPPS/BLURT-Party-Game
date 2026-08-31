@@ -6,6 +6,7 @@
  * are, and one primary action.
  */
 
+import { useEffect, useState } from 'react';
 import { ROUND_PRESETS, ROUNDS_MAX, ROUNDS_MIN, TIMER_PRESETS } from '@shared/constants.js';
 import type { GameSettings, PublicPlayer } from '@shared/types.js';
 import type { LobbyView } from '@shared/views.js';
@@ -108,9 +109,26 @@ function Settings({
   onChange(patch: Partial<GameSettings>): void;
   onSound(event?: 'ui_click' | 'ready'): void;
 }): React.JSX.Element {
+  /**
+   * The round stepper leads the server by one tap.
+   *
+   * Every other control is a straight "send an intent, render what comes back", and
+   * that is right for them. A −/+ stepper is different: two quick taps would both
+   * compute from the same not-yet-updated value and the second would be swallowed,
+   * so the number visibly lags a thumb. The server still re-clamps whatever arrives —
+   * this is a display lead, not a second source of truth.
+   */
+  const [rounds, setRounds] = useState(settings.rounds);
+  useEffect(() => setRounds(settings.rounds), [settings.rounds]);
+
   const tap = (patch: Partial<GameSettings>): void => {
     onSound();
+    if (patch.rounds !== undefined) setRounds(patch.rounds);
     onChange(patch);
+  };
+
+  const step = (delta: number): void => {
+    tap({ rounds: Math.min(ROUNDS_MAX, Math.max(ROUNDS_MIN, rounds + delta)) });
   };
 
   return (
@@ -148,7 +166,7 @@ function Settings({
               <Button
                 key={preset.id}
                 small
-                variant={settings.rounds === preset.rounds ? 'primary' : 'secondary'}
+                variant={rounds === preset.rounds ? 'primary' : 'secondary'}
                 onClick={() => tap({ rounds: preset.rounds })}
               >
                 {preset.label} · {preset.rounds}
@@ -159,9 +177,9 @@ function Settings({
             <Button
               small
               icon
-              onClick={() => tap({ rounds: Math.max(ROUNDS_MIN, settings.rounds - 1) })}
+              onClick={() => step(-1)}
               ariaLabel="One fewer round"
-              disabled={settings.rounds <= ROUNDS_MIN}
+              disabled={rounds <= ROUNDS_MIN}
             >
               −
             </Button>
@@ -169,14 +187,14 @@ function Settings({
               style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--t-h3)', minWidth: '3ch', textAlign: 'center' }}
               aria-live="polite"
             >
-              {settings.rounds}
+              {rounds}
             </span>
             <Button
               small
               icon
-              onClick={() => tap({ rounds: Math.min(ROUNDS_MAX, settings.rounds + 1) })}
+              onClick={() => step(1)}
               ariaLabel="One more round"
-              disabled={settings.rounds >= ROUNDS_MAX}
+              disabled={rounds >= ROUNDS_MAX}
             >
               +
             </Button>

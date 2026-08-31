@@ -456,10 +456,21 @@ const SCENES: Scene[] = [
       await playRound(pages);
       await waitForPhase(pages[0]!, 'FINAL_STORY');
       await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
-      await playDrawing(pages);
-      await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
-      await waitForPhase(pages[0]!, 'FINAL_RESULTS', 240_000);
-      await sleep(5000);
+
+      // Every artist gets a turn, so the finale has to be played out rather than
+      // waited out — three drawings left to their own timers is six minutes.
+      for (let drawing = 0; drawing < 4; drawing += 1) {
+        const phase = await pages[0]!
+          .locator('[data-phase]')
+          .getAttribute('data-phase')
+          .catch(() => null);
+        if (phase === 'FINAL_RESULTS') break;
+        await playDrawing(pages);
+        await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+        await sleep(600);
+      }
+      await waitForPhase(pages[0]!, 'FINAL_RESULTS', 120_000);
+      await sleep(4000);
     },
   },
 ];
