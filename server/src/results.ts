@@ -80,6 +80,7 @@ export function buildHighlightReel(state: RoomState, images: ImageLookup): Highl
     const decoyVotes = Object.values(outcome.fooledCounts).reduce((a, b) => a + b, 0);
     if (decoyVotes <= bestDecoyPull) return;
     const artist = state.players.find((p) => p.id === drawing.artistId);
+    // A drawing nobody made cannot be the funniest drawing.
     if (artist === undefined || !drawing.hasImage) return;
     bestDecoyPull = decoyVotes;
     funniestDrawing = {

@@ -10,7 +10,17 @@
 import { brand } from '../brand.js';
 import type { StateMessage } from '@shared/protocol.js';
 import type { SfxEventId } from '@shared/sfx.js';
-import { ActionButton, AvatarBadge, Card, PhaseTitle, PlayerChip, Progress, TimerRing, Waiting } from '../components/kit.js';
+import {
+  ActionButton,
+  AvatarBadge,
+  Card,
+  DrawingFrame,
+  PhaseTitle,
+  PlayerChip,
+  Progress,
+  TimerRing,
+  Waiting,
+} from '../components/kit.js';
 import { Scoreboard, ScoreboardReveal } from '../components/Scoreboard.js';
 import { StoryReadout, StoryView } from '../components/StoryView.js';
 import { useCountdown } from '../net/useRoom.js';
@@ -78,21 +88,27 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             </div>
             <p className="joinurl muted">{view.joinUrl.length > 0 ? view.joinUrl : `${location.origin}/?room=${state.room.code}`}</p>
           </div>
-          <Card>
-            <h2 className="card__title">In the room ({state.players.filter((p) => p.identified).length}/10)</h2>
-            <ul className="roster">
-              {state.players
-                .filter((p) => p.identified)
-                .map((player) => (
-                  <li key={player.id}>
-                    <PlayerChip player={player} badge={player.ready ? 'READY' : undefined} />
-                  </li>
-                ))}
-            </ul>
-            {state.players.filter((p) => p.identified).length === 0 && (
-              <p className="muted">Waiting for the first brave soul.</p>
-            )}
-          </Card>
+          {/* The player's own controls already list everybody in the room; the code
+              and the join URL are the only parts worth repeating in the strip. */}
+          {!condensed && (
+            <Card>
+              <h2 className="card__title">
+                In the room ({state.players.filter((p) => p.identified).length}/10)
+              </h2>
+              <ul className="roster">
+                {state.players
+                  .filter((p) => p.identified)
+                  .map((player) => (
+                    <li key={player.id}>
+                      <PlayerChip player={player} badge={player.ready ? 'READY' : undefined} />
+                    </li>
+                  ))}
+              </ul>
+              {state.players.filter((p) => p.identified).length === 0 && (
+                <p className="muted">Waiting for the first brave soul.</p>
+              )}
+            </Card>
+          )}
         </div>
       );
 
@@ -281,9 +297,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             <p className="eyebrow">{view.artistName} drew this</p>
             {timer}
           </div>
-          <div className="drawing-frame">
-            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
-          </div>
+          <DrawingFrame url={view.imageUrl} artistName={view.artistName} />
           <Progress done={view.guessesIn} total={view.guessersTotal} label="Guesses in" />
         </div>
       );
@@ -295,9 +309,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             <PhaseTitle eyebrow="One of these is true" title="Which was the real prompt?" />
             {timer}
           </div>
-          <div className="drawing-frame">
-            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
-          </div>
+          <DrawingFrame url={view.imageUrl} artistName={view.artistName} />
           <div className="answers answers--wide">
             {view.options.map((option) => (
               <div key={option.id} className="answer breakable">
@@ -316,9 +328,7 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`}
             title={view.perfect ? 'Everyone got it' : 'The truth'}
           />
-          <div className="drawing-frame">
-            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
-          </div>
+          <DrawingFrame url={view.imageUrl} artistName={view.artistName} />
           <div className="answers answers--wide">
             {view.options.map((option) => (
               <div key={option.id} className="answer breakable" data-winner={option.isReal}>

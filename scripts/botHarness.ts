@@ -13,7 +13,7 @@
 import WebSocket from 'ws';
 import { PROTOCOL_VERSION } from '../shared/constants.js';
 import type { ClientMessage, PrivateMessage, ServerMessage, StateMessage } from '../shared/protocol.js';
-import { isLegalTransition, type Phase } from '../shared/types.js';
+import { LEGAL_TRANSITIONS, type Phase } from '../shared/types.js';
 
 /** A 1×1 transparent PNG — a valid payload that keeps the harness fast. */
 export const TINY_PNG =
@@ -358,6 +358,30 @@ export interface InvariantFailure {
   detail: string;
 }
 
+/**
+ * How many transitions the server may chain inside one broadcast.
+ *
+ * Three covers every real fall-through in the machine (the longest is
+ * SETUP → ACTIVE → GUESS) with one hop of slack.
+ */
+const MAX_UNOBSERVED_HOPS = 3;
+
+/** Breadth-first: is `to` reachable from `from` in 1..maxHops legal transitions? */
+function reachableWithin(from: Phase, to: Phase, maxHops: number): boolean {
+  let frontier: Phase[] = [from];
+  for (let hop = 0; hop < maxHops; hop += 1) {
+    const next: Phase[] = [];
+    for (const phase of frontier) {
+      for (const candidate of LEGAL_TRANSITIONS[phase]) {
+        if (candidate === to) return true;
+        next.push(candidate);
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}
+
 /** Every assertion the brief requires the harness to make, on every match. */
 export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
   const failures: InvariantFailure[] = [];
@@ -371,12 +395,21 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
     return failures;
   }
 
-  // 1. Legal transitions only.
+  // 1. Legal transitions only — but against a short *path*, not a single edge.
+  //
+  //    A phase that is already satisfied when it is entered falls straight through
+  //    inside one atomic step, and only the final phase is broadcast. When an artist
+  //    disconnects, the room genuinely goes SETUP → ACTIVE → GUESS without ever
+  //    publishing ACTIVE, and a client legitimately observes SETUP → GUESS. Allowing
+  //    up to three hops covers every real fall-through while still catching a jump
+  //    that the machine could not have made (LOBBY → ROUND_VOTE is five hops).
   for (const bot of bots) {
     for (let i = 1; i < bot.phases.length; i += 1) {
       const from = bot.phases[i - 1] as Phase;
       const to = bot.phases[i] as Phase;
-      if (!isLegalTransition(from, to)) fail('legal transitions', `${bot.options.name}: ${from} → ${to}`);
+      if (!reachableWithin(from, to, MAX_UNOBSERVED_HOPS)) {
+        fail('legal transitions', `${bot.options.name}: ${from} → ${to} is not reachable`);
+      }
     }
   }
 

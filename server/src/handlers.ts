@@ -105,7 +105,13 @@ function identify(ctx: HandlerContext, rawName: string, avatarId: string): void 
 
   // The first person to name themselves becomes the host if nobody holds it.
   if (ctx.state.hostId === null) assignHost(ctx.state, ctx.player.id);
-  if (!wasIdentified) ctx.effects.toast('info', `${ctx.player.name} joined.`);
+
+  // Announce arrivals only once the game is under way. In the lobby the roster is
+  // right there and updates live, so nine people joining would stack nine toasts
+  // over the host's settings for no information at all.
+  if (!wasIdentified && ctx.state.phase !== 'LOBBY') {
+    ctx.effects.toast('info', `${ctx.player.name} joined.`);
+  }
 }
 
 function setReady(ctx: HandlerContext, ready: boolean): void {

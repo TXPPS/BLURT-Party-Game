@@ -594,11 +594,14 @@ button.answer:active:not(:disabled) {
   align-items: center;
 }
 
-/* Colours get their own grid so eight of them share the row evenly rather than
-   wrapping one orphan onto a second line at phone widths. */
+/**
+ * Colours share the row evenly rather than orphaning one onto a second line — but
+ * never below a 44px target. Eight forced columns squeezed each swatch to 25px on a
+ * 320px phone; `auto-fit` with a real floor wraps to two tidy rows instead.
+ */
 .tools--swatches {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
   gap: var(--s-2);
 }
 
@@ -655,6 +658,16 @@ button.answer:active:not(:disabled) {
   max-width: 560px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* An artist who submitted nothing gets a deliberate note, not a broken image. */
+.drawing-frame--empty {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  align-content: center;
+  gap: var(--s-2);
+  background: var(--c-card-sunken);
+  border-style: dashed;
 }
 
 .drawing-frame img {

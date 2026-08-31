@@ -158,6 +158,7 @@ function Settings({
           <div className="row" style={{ marginTop: 'var(--s-2)' }}>
             <Button
               small
+              icon
               onClick={() => tap({ rounds: Math.max(ROUNDS_MIN, settings.rounds - 1) })}
               ariaLabel="One fewer round"
               disabled={settings.rounds <= ROUNDS_MIN}
@@ -172,6 +173,7 @@ function Settings({
             </span>
             <Button
               small
+              icon
               onClick={() => tap({ rounds: Math.min(ROUNDS_MAX, settings.rounds + 1) })}
               ariaLabel="One more round"
               disabled={settings.rounds >= ROUNDS_MAX}

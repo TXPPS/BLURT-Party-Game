@@ -10,7 +10,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { PrivateMessage } from '@shared/protocol.js';
 import type { StateMessage } from '@shared/protocol.js';
 import { clampText, textLength } from '@shared/sanitize.js';
-import { ActionButton, Card, CharCount, PhaseTitle, TimerRing, Waiting } from '../components/kit.js';
+import { ActionButton, Card, CharCount, DrawingFrame, PhaseTitle, TimerRing, Waiting } from '../components/kit.js';
 import { Scoreboard } from '../components/Scoreboard.js';
 import { useCountdown } from '../net/useRoom.js';
 
@@ -196,7 +196,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
             title={view.nobodyVoted ? 'Nobody voted' : view.wasCoinFlip ? 'It was a tie' : 'Results'}
           />
           <Scoreboard rows={view.leaderboard} />
-          <p className="faint center">Look at the big screen.</p>
+          <p className="faint center">The full breakdown is below.</p>
         </div>
       );
 
@@ -292,9 +292,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
             <PhaseTitle eyebrow="Which one was real" title="Pick the actual prompt" />
             {timer}
           </div>
-          <div className="drawing-frame">
-            <img src={view.imageUrl} alt={`Drawing by ${view.artistName}`} />
-          </div>
+          <DrawingFrame url={view.imageUrl} artistName={view.artistName} />
           <div className="answers">
             {options.map((option) => (
               <ActionButton
@@ -322,7 +320,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
         <div className="stack">
           <PhaseTitle eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`} title="How that went" />
           <Scoreboard rows={view.leaderboard} />
-          <p className="faint center">Look at the big screen.</p>
+          <p className="faint center">The full breakdown is below.</p>
         </div>
       );
 
@@ -486,9 +484,7 @@ function GuessForm({
         <PhaseTitle eyebrow={`${artist} drew this`} title="What were they told to draw?" />
         {timer}
       </div>
-      <div className="drawing-frame">
-        <img src={image} alt={`Drawing by ${artist}`} />
-      </div>
+      <DrawingFrame url={image} artistName={artist} />
       <form
         className="stack"
         onSubmit={(event) => {

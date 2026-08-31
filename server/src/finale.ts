@@ -7,7 +7,7 @@
  */
 
 import { artistCount, selectArtists } from '../../shared/matchmaking.js';
-import { randomInt, shuffle } from '../../shared/rng.js';
+import { makeRng, randomInt, seedFromString, shuffle } from '../../shared/rng.js';
 import { resolveDrawing, type DrawingOption } from '../../shared/scoring.js';
 import { shortId } from './ids.js';
 import { applyEvents, rngFor } from './match.js';
@@ -187,15 +187,44 @@ export function guessersFor(state: RoomState, now: number): string[] {
     .map((p) => p.id);
 }
 
-/** A deterministic house decoy for a guesser who ran out of time. */
-export function houseDecoyFor(state: RoomState, index: number): string {
+/**
+ * A deterministic house decoy for a guesser who ran out of time.
+ *
+ * Seeded on the *player*, not on a number derived from their id's length — every
+ * player id is a UUID of the same length, so the old seed handed three different
+ * people the identical decoy and the vote screen listed it three times.
+ */
+export function houseDecoyFor(state: RoomState, drawingIndex: number, playerId: string): string {
   const pool = [
     'two animals having a disagreement',
     'somebody who has just remembered something awful',
     'a vehicle that should not exist',
     'an object nobody can name',
     'a building with a secret',
+    'a man losing an argument with a door',
+    'something that used to be a hat',
+    'the inside of a very small room',
   ];
-  const rng = rngFor(state, index, 'house-decoy');
-  return pool[randomInt(rng, pool.length)] ?? pool[0] as string;
+  const rng = makeRng(seedFromString(`${state.code}:${drawingIndex}:decoy:${playerId}`));
+  return pool[randomInt(rng, pool.length)] ?? (pool[0] as string);
+}
+
+/**
+ * House decoys must also be distinct from each other, or the vote screen shows the
+ * same line twice and the joke evaporates. Walks the pool until it finds one nobody
+ * has used for this drawing.
+ */
+export function uniqueHouseDecoyFor(
+  state: RoomState,
+  drawingIndex: number,
+  playerId: string,
+  taken: ReadonlySet<string>,
+): string {
+  const first = houseDecoyFor(state, drawingIndex, playerId);
+  if (!taken.has(first)) return first;
+  for (let attempt = 1; attempt < 16; attempt += 1) {
+    const candidate = houseDecoyFor(state, drawingIndex, `${playerId}#${attempt}`);
+    if (!taken.has(candidate)) return candidate;
+  }
+  return first;
 }

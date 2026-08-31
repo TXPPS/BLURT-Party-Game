@@ -18,7 +18,7 @@ import {
   buildDrawingOptions,
   currentDrawingRecord,
   guessersFor,
-  houseDecoyFor,
+  uniqueHouseDecoyFor,
   isLastDrawing,
   recordGuess,
   resolveCurrentDrawing,
@@ -99,11 +99,16 @@ export const drawingGuess: PhaseHandler = {
 function fillMissingGuesses(ctx: PhaseContext): void {
   const drawing = currentDrawingRecord(ctx.state);
   if (drawing === undefined) return;
+  // Everything already on the board, so a house decoy never duplicates a real guess
+  // or another house decoy.
+  const taken = new Set(Object.values(drawing.guesses));
   for (const id of guessersFor(ctx.state, ctx.now)) {
     if (drawing.guesses[id] !== undefined) continue;
     const player = findPlayer(ctx.state, id);
     if (player !== undefined) player.stats.fallbackFills += 1;
-    recordGuess(ctx.state, id, houseDecoyFor(ctx.state, drawing.index + id.length));
+    const decoy = uniqueHouseDecoyFor(ctx.state, drawing.index, id, taken);
+    taken.add(decoy);
+    recordGuess(ctx.state, id, decoy);
   }
 }
 

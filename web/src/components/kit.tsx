@@ -96,6 +96,7 @@ export function Button({
   disabled = false,
   block = false,
   small = false,
+  icon = false,
   type = 'button',
   ariaLabel,
 }: {
@@ -105,6 +106,8 @@ export function Button({
   disabled?: boolean;
   block?: boolean;
   small?: boolean;
+  /** A single glyph. Keeps the full 48x48 target that text buttons get for free. */
+  icon?: boolean;
   type?: 'button' | 'submit';
   ariaLabel?: string;
 }): React.JSX.Element {
@@ -114,6 +117,7 @@ export function Button({
   if (variant === 'ghost') classes.push('btn--ghost');
   if (block) classes.push('btn--block');
   if (small) classes.push('btn--small');
+  if (icon) classes.push('btn--icon');
 
   return (
     <button
@@ -324,6 +328,29 @@ export function Modal({
         </h2>
         {children}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A drawing, or an honest note that there is not one.
+ *
+ * An artist who never submits leaves no image, and pointing an `<img>` at a URL that
+ * 404s renders the browser's broken-image icon — which looks like the game is
+ * failing rather than like somebody ran out of time.
+ */
+export function DrawingFrame({ url, artistName }: { url: string; artistName: string }): React.JSX.Element {
+  if (url.length === 0) {
+    return (
+      <div className="drawing-frame drawing-frame--empty">
+        <p className="lead center">{artistName} drew nothing at all.</p>
+        <p className="faint center">Bold. Minimalist. Impossible to guess.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="drawing-frame">
+      <img src={url} alt={`Drawing by ${artistName}`} />
     </div>
   );
 }

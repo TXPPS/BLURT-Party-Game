@@ -207,6 +207,14 @@ export function buildPublicView(
   const match = state.match;
   const matchup = currentMatchup(state);
   const drawing = currentDrawing(state);
+
+  /**
+   * Empty when the artist never submitted. Pointing an `<img>` at a URL that 404s
+   * renders the browser's broken-image icon, which reads as the game failing rather
+   * than as somebody running out of time — the client shows a deliberate note instead.
+   */
+  const currentImageUrl = (): string =>
+    drawing?.hasImage === true ? images(match?.drawingIndex ?? 0) : '';
   const roundNumber = match === null ? 0 : match.matchupIndex + 1;
   const totalRounds = match?.plan.length ?? state.settings.rounds;
 
@@ -348,7 +356,7 @@ export function buildPublicView(
         roundId: drawing?.roundId ?? '',
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
-        imageUrl: images(match?.drawingIndex ?? 0),
+        imageUrl: currentImageUrl(),
         guessesIn: Object.keys(drawing?.guesses ?? {}).length,
         guessersTotal: guessers.length,
         drawingIndex: (match?.drawingIndex ?? 0) + 1,
@@ -365,7 +373,7 @@ export function buildPublicView(
         roundId: drawing?.roundId ?? '',
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
-        imageUrl: images(match?.drawingIndex ?? 0),
+        imageUrl: currentImageUrl(),
         options: (drawing?.options ?? []).map((o) => ({ id: o.id, text: o.text })),
         votesIn: Object.keys(drawing?.votes ?? {}).length,
         votersTotal: voters.length,
@@ -389,7 +397,7 @@ export function buildPublicView(
         artistId: drawing?.artistId ?? '',
         artistName: artist?.name ?? 'somebody',
         artistAvatarId: artist?.avatarId ?? '',
-        imageUrl: images(match?.drawingIndex ?? 0),
+        imageUrl: currentImageUrl(),
         options: (drawing?.options ?? []).map((option) => {
           const author = option.authorId === null ? undefined : findPlayer(state, option.authorId);
           return {

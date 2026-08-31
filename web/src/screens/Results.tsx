@@ -7,7 +7,7 @@
  */
 
 import type { Award, HighlightReel } from '@shared/types.js';
-import { AvatarBadge, Card } from '../components/kit.js';
+import { AvatarBadge, Card, DrawingFrame } from '../components/kit.js';
 
 export function Awards({ awards }: { awards: readonly Award[] }): React.JSX.Element {
   if (awards.length === 0) return <></>;
@@ -89,12 +89,10 @@ export function Highlights({ highlights }: { highlights: HighlightReel }): React
         <Card tilt="l">
           <div className="stack stack--tight">
             <p className="eyebrow">Most convincing lies told about one drawing</p>
-            <div className="drawing-frame">
-              <img
-                src={highlights.funniestDrawing.imageUrl}
-                alt={`Drawing by ${highlights.funniestDrawing.artistName}`}
-              />
-            </div>
+            <DrawingFrame
+              url={highlights.funniestDrawing.imageUrl}
+              artistName={highlights.funniestDrawing.artistName}
+            />
             <p className="row">
               <AvatarBadge
                 avatarId={highlights.funniestDrawing.artistAvatarId}
