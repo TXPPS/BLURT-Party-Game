@@ -462,7 +462,27 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
     }
   }
 
-  // 6. The final story is complete — no placeholders, no blanks.
+  // 6. THE HOUSE only plays when the room has exactly two people.
+  //
+  //    This exists because the predicate was once handed the *competitor* count
+  //    rather than the room's, which put a house answer in every round from 2 to 5
+  //    players. It was invisible to unit tests and obvious in one screenshot.
+  const identifiedCount = players.length;
+  if (identifiedCount > 2) {
+    for (const bot of bots) {
+      for (const message of bot.received) {
+        if (message.t !== 'state' || message.view.phase !== 'ROUND_RESULTS') continue;
+        if (message.view.answers.some((a) => a.authorId === null)) {
+          fail(
+            'house only at two players',
+            `a house answer appeared in a ${identifiedCount}-player matchup`,
+          );
+        }
+      }
+    }
+  }
+
+  // 7. The final story is complete — no placeholders, no blanks.
   const view = finalState.view as { stories?: { sections: { lines: { segments: { text: string }[] }[] }[] }[] };
   const stories = view.stories ?? [];
   if (stories.length === 0) fail('final story', 'no story was rendered on the results screen');
@@ -471,6 +491,8 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
       for (const line of section.lines) {
         const text = line.segments.map((s) => s.text).join('');
         if (/\{[a-z0-9_]+\}/.test(text)) fail('final story', `unfilled placeholder: ${text}`);
+        // Redaction is for *locked* sections only; the final read-out reveals all.
+        if (text.includes('\u2588')) fail('final story', `a redacted line reached the results: ${text}`);
         if (text.includes('undefined') || text.includes('null')) {
           fail('final story', `placeholder text leaked: ${text}`);
         }

@@ -98,6 +98,15 @@ export const RATE_LIMIT_SUSTAINED_PER_SEC = 5;
 /** Consecutive rate-limit violations tolerated before the socket is closed. */
 export const RATE_LIMIT_STRIKES = 3;
 
+/**
+ * How long a socket may stay open without binding to a player.
+ *
+ * Without this, anybody who knows a room code could open every connection slot and
+ * never handshake, locking real players out at no cost to themselves. A real client
+ * sends its create/join/reconnect immediately on open, so this is generous.
+ */
+export const HANDSHAKE_TIMEOUT_MS = 10_000;
+
 /* ------------------------------------------------------------------ *
  * Match settings
  * ------------------------------------------------------------------ */

@@ -12,6 +12,7 @@
 
 import {
   BROADCAST_COALESCE_MS,
+  HANDSHAKE_TIMEOUT_MS,
   MAX_CONNECTIONS_PER_ROOM,
   MIN_PLAYERS,
   PROTOCOL_VERSION,
@@ -49,6 +50,8 @@ const MAX_TRANSITIONS_PER_EVENT = 24;
 
 interface SocketMeta {
   playerId: string | null;
+  /** When the socket was accepted, so one that never handshakes can be reclaimed. */
+  openedAt?: number;
 }
 
 export interface Env {
@@ -125,8 +128,11 @@ export class RoomDO implements DurableObject {
       if (request.headers.get('Upgrade') !== 'websocket') {
         return new Response('expected websocket', { status: 426 });
       }
-      // Ten players plus a couple of spare display sockets. Without this, sockets
-      // that never send a handshake could pile up indefinitely.
+      // Reclaim squatters *before* counting, or somebody who knows the room code
+      // could hold every slot open without ever identifying themselves.
+      this.sweepUnboundSockets(now);
+
+      // Ten players plus a couple of spare display sockets.
       if (this.ctx.getWebSockets().length >= MAX_CONNECTIONS_PER_ROOM) {
         return new Response('room is at its connection limit', { status: 503 });
       }
@@ -136,7 +142,7 @@ export class RoomDO implements DurableObject {
       const client = pair[0];
       const server = pair[1];
       this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ playerId: null } satisfies SocketMeta);
+      server.serializeAttachment({ playerId: null, openedAt: now } satisfies SocketMeta);
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -206,6 +212,7 @@ export class RoomDO implements DurableObject {
       return;
     }
 
+    this.sweepUnboundSockets(now);
     if ((room.timers.grace ?? Infinity) <= now) this.sweepGrace(now);
     if ((room.timers.hostMigration ?? Infinity) <= now) this.migrateHost();
 
@@ -250,12 +257,39 @@ export class RoomDO implements DurableObject {
     }
   }
 
+  /**
+   * Close any socket that has been open past the handshake window without binding to
+   * a player. A real client sends create/join/reconnect the instant it opens.
+   */
+  private sweepUnboundSockets(now: number): void {
+    for (const socket of this.ctx.getWebSockets()) {
+      const meta = this.metaOf(socket);
+      if (meta.playerId !== null) continue;
+      if (now - (meta.openedAt ?? now) < HANDSHAKE_TIMEOUT_MS) continue;
+      this.send(socket, {
+        t: 'error',
+        code: 'INVALID_MESSAGE',
+        ...copy('INVALID_MESSAGE', 'Join a room before doing that.'),
+        fatal: true,
+      });
+      this.closeSocket(socket, 'HANDSHAKE_TIMEOUT');
+    }
+  }
+
   /** Never let a room become unrecoverable: authority moves to whoever is present. */
   private migrateHost(): void {
     const room = this.room;
     if (room === null) return;
     const successor = pickNewHost(room);
-    if (successor === undefined) return;
+    if (successor === undefined) {
+      // Nobody is promotable yet — everyone still here is on the name screen. Push
+      // the retry out a full interval instead of leaving a deadline in the past,
+      // which `refreshDerivedTimers` would re-arm at the same instant and spin the
+      // alarm hot.
+      room.hostMissingSince = Date.now();
+      this.dirty = true;
+      return;
+    }
     assignHost(room, successor.id);
     this.queuedToasts.push({ kind: 'host', message: `${successor.name} is now the host.` });
     this.dirty = true;
@@ -423,6 +457,11 @@ export class RoomDO implements DurableObject {
       advancePhase: () => {
         const handler = PHASE_HANDLERS[room.phase];
         this.runTransitions(now, (ctx) => {
+          // A submission can be what makes a phase "stuck on absent people only":
+          // the last *online* competitor answering leaves nobody but a player who
+          // has gone. Re-asking here is what stops the room sitting out the whole
+          // 45-second answer timer for somebody who is not coming back.
+          handler.onPresenceChange?.(ctx);
           if (handler.isComplete(ctx) || handler.hostCanAdvance === true) handler.onTimeout(ctx);
         });
       },
@@ -512,7 +551,7 @@ export class RoomDO implements DurableObject {
         room: publicRoom,
         players,
         view,
-        you: buildSelfView(room, player, now),
+        you: buildSelfView(room, player),
         serverTime: now,
       });
 
@@ -649,5 +688,7 @@ export interface PhaseControl {
 
 function copy(code: ErrorCode, override?: string): { message: string } {
   const preset = ERROR_COPY[code];
-  return { message: override ?? `${preset.title}. ${preset.body}` };
+  // The client renders the title from ERROR_COPY itself, so sending
+  // "title. body" made every error screen say the same sentence twice.
+  return { message: override ?? preset.body };
 }

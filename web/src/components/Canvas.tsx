@@ -120,6 +120,9 @@ export function DrawingCanvas({
     };
   };
 
+  // Pointer capture keeps the stroke alive when a finger wanders off the canvas
+  // mid-drag, which is why there is no `pointerleave` handler — ending the stroke
+  // there would chop a line in half every time somebody drew past the edge.
   const start = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     if (sent) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -167,10 +170,24 @@ export function DrawingCanvas({
     repaint();
   };
 
+  /**
+   * Export at a fixed 800×600 regardless of the device.
+   *
+   * The on-screen buffer is scaled by `devicePixelRatio` so strokes look crisp while
+   * drawing, but exporting that directly would send a 1600×1200 PNG from a retina
+   * phone and a 800×600 one from a cheap tablet. Downscaling through an offscreen
+   * canvas makes the payload the same size for everybody.
+   */
   const submit = (): void => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
-    const dataUrl = canvas.toDataURL('image/png');
+    const flat = document.createElement('canvas');
+    flat.width = DRAWING_CANVAS_WIDTH;
+    flat.height = DRAWING_CANVAS_HEIGHT;
+    const flatCtx = flat.getContext('2d');
+    if (flatCtx === null) return;
+    flatCtx.drawImage(canvas, 0, 0, DRAWING_CANVAS_WIDTH, DRAWING_CANVAS_HEIGHT);
+    const dataUrl = flat.toDataURL('image/png');
     if (dataUrl.length > DRAWING_PAYLOAD_MAX_BYTES) {
       setTooBig(true);
       return;
@@ -206,13 +223,12 @@ export function DrawingCanvas({
           onPointerMove={move}
           onPointerUp={end}
           onPointerCancel={end}
-          onPointerLeave={end}
           aria-label="Drawing canvas. Use the buttons below if you cannot draw with a pointer."
           role="img"
         />
       </div>
 
-      <div className="tools" role="group" aria-label="Colours">
+      <div className="tools tools--swatches" role="group" aria-label="Colours">
         {COLOURS.map((option) => (
           <button
             key={option.id}

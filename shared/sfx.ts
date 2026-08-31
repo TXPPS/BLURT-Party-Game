@@ -65,7 +65,13 @@ export const CRUDE_ONLY_SFX: ReadonlySet<SfxEventId> = new Set<SfxEventId>([
   'wheeze_laugh',
 ]);
 
-/** Events a device plays for its own interactions rather than waiting for the server. */
+/**
+ * Events a device plays for its own interactions rather than waiting for the server.
+ *
+ * The two timer cues are here deliberately. Dramatic cues are server-driven and, by
+ * default, only the shared screen plays them — but "your time is running out" is
+ * about this player's own deadline, so every device must be able to sound its own.
+ */
 export const LOCAL_UI_SFX: ReadonlySet<SfxEventId> = new Set<SfxEventId>([
   'ui_click',
   'ui_back',
@@ -73,6 +79,8 @@ export const LOCAL_UI_SFX: ReadonlySet<SfxEventId> = new Set<SfxEventId>([
   'ready',
   'submit',
   'vote_cast',
+  'timer_warning',
+  'timer_out',
 ]);
 
 const EVENT_SET: ReadonlySet<string> = new Set(SFX_EVENTS);

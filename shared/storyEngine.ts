@@ -84,10 +84,15 @@ export function renderStory(story: Story, fills: SlotFills, options: RenderOptio
     const unlocked = revealAll || (stillUnlocking && allPlayed);
     if (!allPlayed) stillUnlocking = false;
 
+    // A locked section's prose is *redacted*, not merely hidden. Sending the real
+    // text and blurring it in CSS would leave the rest of the story one devtools
+    // panel away, which is the whole game.
     const lines: RenderedLine[] = section.lines.map((line) => ({
       sectionId: section.id,
       lineId: line.id,
-      segments: renderSegments(story, line.text, fills, freshFrom),
+      segments: unlocked
+        ? renderSegments(story, line.text, fills, freshFrom)
+        : [{ kind: 'text' as const, text: redact(line.text) }],
     }));
 
     return {
@@ -100,6 +105,11 @@ export function renderStory(story: Story, fills: SlotFills, options: RenderOptio
   });
 
   return { storyId: story.id, title: story.title, genre: story.genre, sections };
+}
+
+/** Same shape, no content: enough for the layout to show there is more to come. */
+function redact(text: string): string {
+  return text.replace(/[^\s]/gu, '\u2588');
 }
 
 function collectSlotIds(texts: readonly string[]): string[] {

@@ -69,7 +69,7 @@ export const roundPrompt: PhaseHandler = {
 export const roundWaiting: PhaseHandler = {
   onEnter(ctx) {
     // Everything missing is filled in here, once, so the reveal is always complete.
-    fillMissingAnswers(ctx.state);
+    fillMissingAnswers(ctx.state, ctx.now);
     setPhaseDeadline(ctx.state, ctx.now, WAITING_BEAT_MS);
     ctx.effects.sfx('votes_locked');
   },
@@ -134,7 +134,7 @@ export const roundVote: PhaseHandler = {
 
 export const roundResults: PhaseHandler = {
   onEnter(ctx) {
-    resolveCurrentMatchup(ctx.state);
+    resolveCurrentMatchup(ctx.state, ctx.now);
     setPhaseDeadline(ctx.state, ctx.now, ROUND_RESULTS_AUTO_MS);
 
     const outcome = matchupOf(ctx)?.resolved ?? null;

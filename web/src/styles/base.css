@@ -29,18 +29,24 @@ body {
   overflow-x: hidden;
 }
 
-/* Paper grain: a single very faint tiled layer, never strong enough to move a
-   contrast ratio. Fixed so it does not scroll with the content. */
+/**
+ * Paper grain: a single very faint tiled layer, never strong enough to move a
+ * contrast ratio.
+ *
+ * Deliberately *not* `mix-blend-mode: multiply`. A fixed, full-viewport blended
+ * element forces the whole page into a blended stacking context, which makes
+ * scrolling visibly janky on a weak GPU — and this game is played on phones. Plain
+ * alpha over cream looks the same and composites for free.
+ */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background-image: var(--grain);
   background-size: 120px 120px;
-  opacity: 0.03;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 0;
-  mix-blend-mode: multiply;
 }
 
 h1,

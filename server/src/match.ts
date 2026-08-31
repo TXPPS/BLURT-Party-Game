@@ -17,7 +17,7 @@ import { makeRng, randomInt, roundSeed, type Rng } from '../../shared/rng.js';
 import { resolveMatchup, type MatchupAnswer, type ScoreEvent } from '../../shared/scoring.js';
 import { houseFallbackFor } from '../../shared/storyEngine.js';
 import { shortId } from './ids.js';
-import { findPlayer, matchmakingView, nextSeq } from './roomState.js';
+import { eligiblePlayers, findPlayer, matchmakingView, nextSeq } from './roomState.js';
 import { fillKey, planMatch, rememberStories, slotFor, storyById } from './story.js';
 import type { MatchState, MatchupRecord, RoomState } from './types.js';
 
@@ -192,10 +192,14 @@ export function hasSubmitted(matchup: MatchupRecord, playerId: string): boolean 
  * intact — but it is marked so the awards can tell the difference between a joke
  * somebody wrote and a joke the game wrote for them.
  */
-export function fillMissingAnswers(state: RoomState): void {
+export function fillMissingAnswers(state: RoomState, now: number): void {
   const match = state.match;
   const matchup = match?.matchups[match.matchupIndex];
   if (match === undefined || match === null || matchup === undefined) return;
+
+  // The house only plays when the *room* has two people, not when a matchup happens
+  // to have two competitors — which is every matchup from 2 to 5 players.
+  const roomSize = eligiblePlayers(state, now).length;
 
   const story = storyById(matchup.storyId);
   const slot = slotFor(matchup.storyId, matchup.slotId);
@@ -217,7 +221,7 @@ export function fillMissingAnswers(state: RoomState): void {
 
   // Two players means no impartial voters, so THE HOUSE joins the matchup and both
   // players vote. Losing to it is a documented, celebrated outcome.
-  if (needsHouseAnswer(matchup.competitorIds.length) && !matchup.answers.some((a) => a.authorId === null)) {
+  if (needsHouseAnswer(roomSize) && !matchup.answers.some((a) => a.authorId === null)) {
     const used = new Set(matchup.answers.map((a) => a.text));
     const unused = slot.fallback.filter((f) => !used.has(f));
     const pool = unused.length > 0 ? unused : slot.fallback;
@@ -251,7 +255,7 @@ export function recordVote(state: RoomState, voterId: string, answerId: string):
  * Resolve the current matchup: score it, update stats, and write the winning answer
  * into the story. Safe to call once — the handler guards against a second call.
  */
-export function resolveCurrentMatchup(state: RoomState): void {
+export function resolveCurrentMatchup(state: RoomState, now: number): void {
   const match = state.match;
   const matchup = match?.matchups[match.matchupIndex];
   if (match === null || matchup === undefined || matchup.resolved !== null) return;
@@ -304,7 +308,7 @@ export function resolveCurrentMatchup(state: RoomState): void {
 
   // Two-player mode: losing the slot to THE HOUSE is its own award.
   const winningAnswer = matchup.answers.find((a) => a.id === outcome.winningAnswerId);
-  if (winningAnswer?.authorId === null && needsHouseAnswer(matchup.competitorIds.length)) {
+  if (winningAnswer?.authorId === null && needsHouseAnswer(eligiblePlayers(state, now).length)) {
     for (const id of matchup.competitorIds) {
       const player = findPlayer(state, id);
       if (player !== undefined) player.stats.houseLosses += 1;

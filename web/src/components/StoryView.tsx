@@ -11,18 +11,38 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { RenderedStory } from '@shared/types.js';
+import { isSfxEventId, type SfxEventId } from '@shared/sfx.js';
 import { AvatarBadge } from './kit.js';
 
 export function StoryView({
   story,
   freshSlotIds = [],
   showAuthors = true,
+  onCue,
 }: {
   story: RenderedStory;
   freshSlotIds?: readonly string[];
   showAuthors?: boolean;
+  /** Fired once per newly-unlocked section, so a section's `audioCue` is heard. */
+  onCue?: (event: SfxEventId) => void;
 }): React.JSX.Element {
   const fresh = new Set(freshSlotIds);
+  const cued = useRef<Set<string>>(new Set());
+
+  // A story update reveals one or more sections; each one gets its cue exactly once.
+  const unlockedKey = story.sections.filter((s) => s.unlocked).map((s) => s.id).join(',');
+  useEffect(() => {
+    if (onCue === undefined) return;
+    for (const section of story.sections) {
+      if (!section.unlocked || section.audioCue === null) continue;
+      const key = `${story.storyId}:${section.id}`;
+      if (cued.current.has(key)) continue;
+      cued.current.add(key);
+      if (isSfxEventId(section.audioCue)) onCue(section.audioCue);
+    }
+    // `unlockedKey` is the thing that actually changes when a section opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlockedKey, story.storyId, onCue]);
 
   return (
     <article className="story">
@@ -82,10 +102,13 @@ export function StoryReadout({
   stories,
   lineDelayMs,
   onFinished,
+  onCue,
 }: {
   stories: readonly RenderedStory[];
   lineDelayMs: number;
   onFinished?: () => void;
+  /** Fired as the read-out reaches each section, so the pacing has punctuation. */
+  onCue?: (event: SfxEventId) => void;
 }): React.JSX.Element {
   const totalLines = stories.reduce(
     (sum, story) => sum + story.sections.reduce((n, section) => n + section.lines.length, 0),
@@ -97,6 +120,32 @@ export function StoryReadout({
   const [shown, setShown] = useState(reduced ? totalLines : 0);
   const finishedRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const cued = useRef<Set<string>>(new Set());
+
+  // Where each section starts in the flattened line sequence, so its cue can fire the
+  // moment the read-out reaches it rather than all at once at the start.
+  const sectionStarts: { key: string; at: number; cue: string | null }[] = [];
+  {
+    let at = 0;
+    for (const story of stories) {
+      for (const section of story.sections) {
+        sectionStarts.push({ key: `${story.storyId}:${section.id}`, at, cue: section.audioCue });
+        at += section.lines.length;
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (onCue === undefined) return;
+    for (const section of sectionStarts) {
+      if (shown <= section.at || section.cue === null) continue;
+      if (cued.current.has(section.key)) continue;
+      cued.current.add(section.key);
+      if (isSfxEventId(section.cue)) onCue(section.cue);
+    }
+    // `shown` is the only input that advances the read-out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, onCue]);
 
   useEffect(() => {
     if (reduced || shown >= totalLines) {

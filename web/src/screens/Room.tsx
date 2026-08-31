@@ -14,6 +14,7 @@ import { applyBrand } from '../brand.js';
 import type { RoomHandle } from '../net/useRoom.js';
 import type { DevicePrefs } from '../net/session.js';
 import type { MixerLevels } from '../audio/synth.js';
+import type { SfxEventId } from '@shared/sfx.js';
 import { AdultGate, DeviceMenu, DeviceMenuButton, Toasts } from '../components/Overlays.js';
 import { Button, Card, PlayerChip } from '../components/kit.js';
 import { ConnectionBanner, ErrorScreen } from './ErrorScreen.js';
@@ -28,7 +29,9 @@ export interface RoomProps {
   onPrefs(next: DevicePrefs): void;
   levels: MixerLevels;
   onLevels(next: MixerLevels): void;
-  onSound(): void;
+  onSound(event?: SfxEventId): void;
+  /** Story sections and other server-authored cues. */
+  onCue(event: SfxEventId): void;
   onHome(): void;
 }
 
@@ -56,7 +59,14 @@ export function Room(props: RoomProps): React.JSX.Element {
   }, [state]);
 
   if (room.fatal !== null) {
-    return <ErrorScreen code={room.fatal.code} message={room.fatal.message} onHome={props.onHome} />;
+    return (
+      <ErrorScreen
+        code={room.fatal.code}
+        message={room.fatal.message}
+        onRetry={() => location.reload()}
+        onHome={props.onHome}
+      />
+    );
   }
 
   if (state === null) {
@@ -77,8 +87,16 @@ export function Room(props: RoomProps): React.JSX.Element {
     return (
       <div className="app">
         <AdultGate
+          isHost={state.you.isHost}
           onAccept={() => room.send({ t: 'acknowledge_adult' })}
           onDecline={() => {
+            // The gate replaces the whole UI, so a host who declines would otherwise
+            // be locked out of the room they own with no way back to the setting they
+            // just changed. For them, "no thanks" means "put it back to Classic".
+            if (state.you.isHost) {
+              room.send({ t: 'update_settings', settings: { mode: 'classic' } });
+              return;
+            }
             setDeclinedAdult(true);
             props.onHome();
           }}
@@ -110,6 +128,7 @@ export function Room(props: RoomProps): React.JSX.Element {
       state={state}
       serverNow={room.serverNow}
       isHost={state.you.isHost}
+      onCue={props.onCue}
       onAdvance={() => room.send({ t: 'advance' })}
       onPlayAgain={() => room.send({ t: 'play_again' })}
       onReturnToLobby={() => room.send({ t: 'return_to_lobby' })}
@@ -215,6 +234,7 @@ export function Room(props: RoomProps): React.JSX.Element {
                   state={state}
                   serverNow={room.serverNow}
                   isHost={state.you.isHost}
+                  onCue={props.onCue}
                   onAdvance={() => room.send({ t: 'advance' })}
                   onPlayAgain={() => room.send({ t: 'play_again' })}
                   onReturnToLobby={() => room.send({ t: 'return_to_lobby' })}

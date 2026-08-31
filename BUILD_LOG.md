@@ -237,6 +237,130 @@ vite build       ✓ 92 KB gzipped initial, against a 250 KB budget
 
 ---
 
+## PHASE 11 — ADVERSARIAL REVIEW
+
+Every role, answering the same nine questions with specific evidence. Findings are
+marked **FIXED** (addressed in this session) or **DOCUMENTED** (recorded in README →
+KNOWN LIMITATIONS with a one-line reason).
+
+### What could still be broken?
+
+- **Multiplayer Engineer.** An attacker who knows a room code could open all twelve
+  connection slots and never handshake, locking real players out — the cap counts
+  sockets, and an unbound socket costs nothing to hold. **FIXED:** the DO sweeps
+  sockets that have not bound to a player within 10 seconds, and does so *before* the
+  cap check, so a squatter cannot hold a slot.
+- **Gameplay Engineer.** `resolveCurrentDrawing` counts eligible voters at resolution
+  time while `guessersFor` counted them at guess time. If somebody's grace window
+  lapses in between, `perfect` is measured against a slightly different denominator.
+  The failure mode is a missed 140-point bonus, not a crash. **DOCUMENTED.**
+- **QA.** The harness proves the *protocol*; the only thing proving the UI is the
+  Playwright pass, which covers the main flow rather than every screen. Two of this
+  session's three S1 bugs were UI-only, which is exactly the gap. **DOCUMENTED.**
+
+### What feels unfinished?
+
+- **Audio Designer.** The mixer has a music channel and it is silent. Building a
+  procedural soundtrack was explicitly out of scope, but the slider implies something
+  that does not exist. **DOCUMENTED.**
+- **Content Designer.** Seven stories, 70 slots. Enough to play several matches
+  without a repeat, not enough for a long night. Engine quality was prioritised over
+  volume, and adding a story is genuinely two steps. **DOCUMENTED.**
+- **UX Designer.** The settings panel is the least characterful screen in the
+  game — a stack of button groups that could belong to any app. It works, it is
+  legible, and it is the one place the brand goes quiet. **DOCUMENTED.**
+
+### What would embarrass a professional studio?
+
+- **Performance Engineer.** Shipping a game that pushes a 200 KB PNG through the
+  WebSocket to every player on every broadcast. At ten players voting one at a time
+  that is several megabytes for one picture. **FIXED** — drawings moved to a
+  cacheable HTTP route.
+- **Frontend Engineer.** A submit button that silently does nothing because it
+  disabled itself before the form could fire. It shipped past a type-checker, a
+  linter and 174 tests, and was only visible by watching a real browser. **FIXED**,
+  and the type now makes the misuse impossible to write.
+- **Technical Director.** Twenty unused exports. Small, but it is the difference
+  between a codebase somebody maintains and one somebody inherits. **FIXED.**
+
+### What is likely to fail at 10 players?
+
+- **Performance Engineer.** Nothing structural. The view is built **once** per
+  broadcast and shared across sockets; only the small per-socket `private` payload is
+  rebuilt. Broadcasts are coalesced into a 50ms window and never fire on a timer, so
+  the ten-player message rate is bounded by how fast ten people can tap.
+- **UX Designer.** `DRAWING_VOTE` at ten players shows ten options — the real prompt
+  plus nine decoys. On a 320px screen that is a long scroll and an easy mis-tap.
+  Playable, but it is the screen most likely to feel cramped. **DOCUMENTED.**
+- **Multiplayer Engineer.** Ten players plus two display sockets is exactly the cap,
+  so a group of ten who all open a second tab will see the twelfth refused. That is
+  the intended behaviour, and the refusal is a designed screen rather than a hang.
+
+### What is likely to fail on a mid-range Android phone?
+
+- **Performance Engineer.** Two things, both **FIXED**. The countdown called
+  `setState` on every animation frame — sixty full re-renders a second for a number
+  that changes once a second. And the paper grain was a fixed, full-viewport element
+  with `mix-blend-mode: multiply`, which forces the whole page into a blended
+  stacking context and makes scrolling jank on a weak GPU; it is now a plain
+  low-opacity overlay that looks the same and composites for free.
+- **Frontend Engineer.** `canvas.toDataURL` on an 800×600 buffer at 2× takes on the
+  order of 100ms on a slow device. It happens once, on submit, behind a button that
+  is already locked. Acceptable.
+
+### What looks generic?
+
+- **Brand Designer.** The settings panel (above), and the waiting screens, which are
+  text plus an animated ellipsis. They have voice — "Bracing", "One of these is about
+  to ruin somebody" — but no illustration. Everything else earns the printed-card
+  identity: hard offset shadows, ink outlines, hand-placed rotations, the room code as
+  the single largest object on screen.
+
+### What is confusing to a first-time player who joined 30 seconds ago?
+
+- **UX Designer.** The honest answer: for the first two rounds they do not know a
+  story exists. That is the entire hook, so the fix is not to explain it — it is to
+  make the *withholding* feel deliberate. GAME_SETUP says "A story has been chosen /
+  You will not be told which one", and the first STORY_UPDATE lands at round two. A
+  player who has not been told anything by round three would be a real problem; a
+  player kept in the dark for ninety seconds is the game working.
+- Non-competitors never see a dead screen. Every waiting state names what the group
+  is doing, shows the same timer, and (by default) shows a condensed version of the
+  shared screen underneath, so a fully remote group never needs a TV.
+
+### What security assumptions are we making, and what happens if they're wrong?
+
+- **Security Engineer.** *Assumption: a four-letter room code is not a secret.* It is
+  not — 923 words means a determined attacker finds live rooms by guessing. The blast
+  radius is deliberately small: they can join a lobby and be a nuisance, the host can
+  remove them, a started game refuses joins, and rooms expire. Every party game with a
+  shoutable code makes this trade. **DOCUMENTED.**
+- *Assumption: the reconnect token is the only proof of identity.* It is 32 bytes from
+  `crypto.getRandomValues`, compared in constant time, never broadcast, and stored in
+  `sessionStorage` so a second tab cannot inherit it. If it leaked, an attacker could
+  take over that one seat in that one room until it expires.
+- *Assumption: the client is hostile.* Enforced rather than assumed. Host authority is
+  checked against the server's record, self-votes are refused server-side, settings are
+  re-clamped, phase legality is a table lookup, and the reveal payload is built from a
+  type with no author field. The harness sends hand-crafted hostile frames for each of
+  these and asserts the refusal.
+- *Assumption: rate limiting per socket is enough.* It is not on its own — the
+  connection cap plus the new handshake sweep is what closes it.
+
+### What happens on flaky hotel wifi?
+
+- **Multiplayer Engineer.** The socket drops, the client shows a banner rather than an
+  error screen, and reconnect backs off exponentially with jitter — so a whole room
+  coming back after a blip does not stampede. The stored token restores identity,
+  score, stats and the correct current screen. The seat survives 90 seconds.
+- If the connection dies without a close frame, the 20-second heartbeat is what
+  surfaces it.
+- A player whose absence is the *only* thing a phase is waiting on no longer costs the
+  room the full timer: the phase shortens itself to 22 seconds. The 90-second grace is
+  about keeping a seat, not about making nine other people wait.
+
+---
+
 ## OPEN ISSUES
 
 | ID | Sev | Description | Fix | Status |

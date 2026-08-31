@@ -21,7 +21,7 @@ export interface IdentifyProps {
   mode: GameMode;
   adultAcknowledged: boolean;
   onSubmit(name: string, avatarId: string): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'join'): void;
   playerId: string;
 }
 
@@ -68,7 +68,9 @@ export function Identify({ mode, adultAcknowledged, onSubmit, onSound, playerId 
             className="stack"
             onSubmit={(event) => {
               event.preventDefault();
-              if (valid) onSubmit(name.trim(), avatarId);
+              if (!valid) return;
+              onSound('join');
+              onSubmit(name.trim(), avatarId);
             }}
           >
             <div className="field">
@@ -169,7 +171,7 @@ function NameMeModal({
   crudePools: NamePools | null;
   onUse(name: string): void;
   onClose(): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'join'): void;
 }): React.JSX.Element {
   const [pack, setPack] = useState<'classic' | 'crude' | null>(allowCrude ? null : 'classic');
   const [current, setCurrent] = useState('');

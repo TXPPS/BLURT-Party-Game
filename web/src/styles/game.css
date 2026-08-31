@@ -582,6 +582,19 @@ button.answer:active:not(:disabled) {
   align-items: center;
 }
 
+/* Colours get their own grid so eight of them share the row evenly rather than
+   wrapping one orphan onto a second line at phone widths. */
+.tools--swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--s-2);
+}
+
+.tools--swatches .swatch {
+  width: 100%;
+  min-width: 0;
+}
+
 .swatch {
   width: 44px;
   height: 44px;

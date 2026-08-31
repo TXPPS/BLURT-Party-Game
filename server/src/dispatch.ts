@@ -28,7 +28,9 @@ function fail(room: RoomDO, socket: WebSocket, code: ErrorCode, fatal: boolean, 
   room.send(socket, {
     t: 'error',
     code,
-    message: override ?? `${preset.title}. ${preset.body}`,
+    // The client supplies the title from ERROR_COPY; sending it again here made
+    // every error screen repeat itself.
+    message: override ?? preset.body,
     fatal,
   });
   if (fatal) room.closeSocket(socket, code);

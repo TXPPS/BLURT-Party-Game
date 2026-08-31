@@ -26,7 +26,6 @@ import { computeMatchAwards, buildHighlightReel } from './results.js';
 import {
   eligiblePlayers,
   findPlayer,
-  isEligible,
   roomExpiresAt,
   startBlock,
   toPublicPlayer,
@@ -134,7 +133,7 @@ export function buildDeltas(state: RoomState, events: readonly ScoreEvent[]): Sc
  * Roles
  * ------------------------------------------------------------------ */
 
-export function roleFor(state: RoomState, player: ServerPlayer, now: number): PlayerRole {
+export function roleFor(state: RoomState, player: ServerPlayer): PlayerRole {
   const matchup = currentMatchup(state);
   const drawing = currentDrawing(state);
 
@@ -154,15 +153,16 @@ export function roleFor(state: RoomState, player: ServerPlayer, now: number): Pl
     case 'DRAWING_VOTE':
       return drawing?.artistId === player.id ? 'ARTIST' : 'VOTER';
     default:
-      return isEligible(player, now) ? 'SPECTATOR_OF_ROUND' : 'SPECTATOR_OF_ROUND';
+      // Lobby, story beats and results: nobody has a job beyond watching.
+      return 'SPECTATOR_OF_ROUND';
   }
 }
 
-export function buildSelfView(state: RoomState, player: ServerPlayer, now: number): SelfView {
+export function buildSelfView(state: RoomState, player: ServerPlayer): SelfView {
   return {
     playerId: player.id,
     isHost: state.hostId === player.id,
-    role: roleFor(state, player, now),
+    role: roleFor(state, player),
     score: player.score,
     needsAdultGate: state.settings.mode === 'crude' && !player.adultAcknowledged,
   };

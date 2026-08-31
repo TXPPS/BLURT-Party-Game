@@ -110,7 +110,7 @@ function fillMissingGuesses(ctx: PhaseContext): void {
 export const drawingVote: PhaseHandler = {
   onEnter(ctx) {
     fillMissingGuesses(ctx);
-    buildDrawingOptions(ctx.state, ctx.now);
+    buildDrawingOptions(ctx.state);
     setPhaseDeadline(ctx.state, ctx.now, voteMs(ctx.state));
     ctx.effects.sfx('votes_locked');
   },

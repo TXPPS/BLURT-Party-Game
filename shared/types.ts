@@ -78,7 +78,15 @@ export function isLegalTransition(from: Phase, to: Phase): boolean {
   return LEGAL_TRANSITIONS[from].includes(to);
 }
 
-/** What this device is being asked to do right now. Drives client screen routing. */
+/**
+ * What this device is being asked to do right now. Drives client screen routing.
+ *
+ * All of these except `HOST_DISPLAY` are assigned by the server from the current
+ * phase. `HOST_DISPLAY` is decided *by the device*: showing the shared big-screen
+ * layout is a local preference (see `DevicePrefs.bigScreen`), which is what lets the
+ * same player flip between the group view and their own controls without the room
+ * needing to know or care.
+ */
 export type PlayerRole =
   | 'HOST_DISPLAY'
   | 'COMPETITOR'

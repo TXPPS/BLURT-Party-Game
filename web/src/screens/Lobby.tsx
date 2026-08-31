@@ -22,7 +22,7 @@ export interface LobbyProps {
   onKick(playerId: string): void;
   onReady(ready: boolean): void;
   myReady: boolean;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'ready'): void;
 }
 
 export function Lobby(props: LobbyProps): React.JSX.Element {
@@ -40,7 +40,7 @@ export function Lobby(props: LobbyProps): React.JSX.Element {
                 small
                 variant={myReady ? 'ghost' : 'primary'}
                 onClick={() => {
-                  onSound();
+                  onSound('ready');
                   onReady(!myReady);
                 }}
               >
@@ -106,7 +106,7 @@ function Settings({
 }: {
   settings: GameSettings;
   onChange(patch: Partial<GameSettings>): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'ready'): void;
 }): React.JSX.Element {
   const tap = (patch: Partial<GameSettings>): void => {
     onSound();

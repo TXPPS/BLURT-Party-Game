@@ -9,6 +9,7 @@
 
 import { brand } from '../brand.js';
 import type { StateMessage } from '@shared/protocol.js';
+import type { SfxEventId } from '@shared/sfx.js';
 import { ActionButton, AvatarBadge, Card, PhaseTitle, PlayerChip, Progress, TimerRing, Waiting } from '../components/kit.js';
 import { Scoreboard, ScoreboardReveal } from '../components/Scoreboard.js';
 import { StoryReadout, StoryView } from '../components/StoryView.js';
@@ -23,6 +24,8 @@ export interface GroupViewProps {
   onPlayAgain(): void;
   onReturnToLobby(): void;
   condensed?: boolean;
+  /** Plays a story section's declared audio cue as that section is revealed. */
+  onCue?(event: SfxEventId): void;
 }
 
 export function GroupView(props: GroupViewProps): React.JSX.Element {
@@ -223,9 +226,14 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
     case 'STORY_UPDATE':
       return (
         <div className="stack">
-          <PhaseTitle eyebrow="The story so far" title="This is what you have done" />
+          {!condensed && <PhaseTitle eyebrow="The story so far" title="This is what you have done" />}
           {view.stories.map((story) => (
-            <StoryView key={story.storyId} story={story} freshSlotIds={view.freshSlotIds} />
+            <StoryView
+              key={story.storyId}
+              story={story}
+              freshSlotIds={view.freshSlotIds}
+              {...(props.onCue !== undefined && !condensed ? { onCue: props.onCue } : {})}
+            />
           ))}
           <div className="row row--center">{advance}</div>
         </div>
@@ -234,8 +242,12 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
     case 'FINAL_STORY':
       return (
         <div className="stack">
-          <PhaseTitle eyebrow="All of it" title="The finished article" />
-          <StoryReadout stories={view.stories} lineDelayMs={view.lineDelayMs} />
+          {!condensed && <PhaseTitle eyebrow="All of it" title="The finished article" />}
+          <StoryReadout
+            stories={view.stories}
+            lineDelayMs={view.lineDelayMs}
+            {...(props.onCue !== undefined && !condensed ? { onCue: props.onCue } : {})}
+          />
           <div className="row row--center">{advance}</div>
         </div>
       );
@@ -251,8 +263,14 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             {timer}
           </div>
 
-          <PhaseTitle title={`${view.artistName} is drawing`} sub="Nobody else knows what." />
-          <Waiting message={view.phase === 'DRAWING_ACTIVE' && view.submitted ? 'Finished' : 'Scribbling'} />
+          {/* The artist's own device already says "draw this" in large type; telling
+              them who is drawing is noise on the one screen that knows. */}
+          {state.you.role !== 'ARTIST' && (
+            <>
+              <PhaseTitle title={`${view.artistName} is drawing`} sub="Nobody else knows what." />
+              <Waiting message={view.phase === 'DRAWING_ACTIVE' && view.submitted ? 'Finished' : 'Scribbling'} />
+            </>
+          )}
         </div>
       );
 

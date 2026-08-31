@@ -6,7 +6,7 @@
  * function of (phase, role) — this component computes nothing about the game.
  */
 
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { PrivateMessage } from '@shared/protocol.js';
 import type { StateMessage } from '@shared/protocol.js';
 import { clampText, textLength } from '@shared/sanitize.js';
@@ -27,7 +27,45 @@ export interface PlayerViewProps {
   onDrawing(roundId: string, dataUrl: string): void;
   onGuess(roundId: string, text: string): void;
   onDrawingVote(roundId: string, optionId: string): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'submit' | 'vote_cast' | 'timer_warning' | 'timer_out'): void;
+}
+
+/** Seconds remaining at which a player's own device warns them. */
+const TIMER_WARNING_AT = 10;
+
+/**
+ * The deadline warning is a *local* sound, deliberately.
+ *
+ * Dramatic cues are driven by the server and, by default, only the shared screen
+ * plays them — but "your time is running out" is about this player's own device, so
+ * everybody should hear their own.
+ */
+function useTimerSounds(seconds: number, active: boolean, play: (e: 'timer_warning' | 'timer_out') => void): void {
+  const warned = useRef(false);
+  const expired = useRef(false);
+  const playRef = useRef(play);
+  playRef.current = play;
+
+  useEffect(() => {
+    if (!active) {
+      warned.current = false;
+      expired.current = false;
+      return;
+    }
+    if (seconds > TIMER_WARNING_AT) {
+      warned.current = false;
+      expired.current = false;
+      return;
+    }
+    if (seconds > 0 && !warned.current) {
+      warned.current = true;
+      playRef.current('timer_warning');
+    }
+    if (seconds <= 0 && !expired.current) {
+      expired.current = true;
+      playRef.current('timer_out');
+    }
+  }, [seconds, active]);
 }
 
 export function PlayerView(props: PlayerViewProps): React.JSX.Element {
@@ -35,6 +73,16 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
   const view = state.view;
   const deadline = 'deadline' in view && view.deadline !== null ? view.deadline.endsAt : null;
   const countdown = useCountdown(deadline, props.serverNow);
+
+  // Only warn on phases this player can still act in — a spectator does not need to
+  // be told that somebody else is running out of time.
+  const actionable =
+    view.phase === 'ROUND_PROMPT' ||
+    view.phase === 'ROUND_VOTE' ||
+    view.phase === 'DRAWING_ACTIVE' ||
+    view.phase === 'DRAWING_GUESS' ||
+    view.phase === 'DRAWING_VOTE';
+  useTimerSounds(countdown.seconds, deadline !== null && actionable, props.onSound);
 
   const timer =
     deadline === null ? null : (
@@ -125,7 +173,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
                 block
                 disabled={myVote !== undefined}
                 onClick={() => {
-                  props.onSound();
+                  props.onSound('vote_cast');
                   props.onVote(view.roundId, answer.id);
                 }}
               >
@@ -160,7 +208,9 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
             eyebrow="The story so far"
             title={view.phase === 'FINAL_STORY' ? 'The whole thing' : 'What you have done'}
           />
-          <Waiting message="Reading it out" detail="Look up. This is the good bit." />
+          {/* Deliberately not "look up": plenty of groups play with no shared screen
+              at all, and the condensed group view is right below these words. */}
+          <Waiting message="Reading it out" detail="This is the good bit." />
         </div>
       );
 
@@ -253,7 +303,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
                 block
                 disabled={myVote !== undefined}
                 onClick={() => {
-                  props.onSound();
+                  props.onSound('vote_cast');
                   props.onDrawingVote(view.roundId, option.id);
                 }}
               >
@@ -329,7 +379,7 @@ function AnswerForm({
   timer: React.ReactNode;
   view: Extract<StateMessage['view'], { phase: 'ROUND_PROMPT' }>;
   onSubmit(roundId: string, text: string): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'submit'): void;
 }): React.JSX.Element {
   const [text, setText] = useState(prompt.submitted ?? '');
   const [sent, setSent] = useState(prompt.submitted !== null);
@@ -348,7 +398,7 @@ function AnswerForm({
   // an ActionButton, which is never a submitter — see `ActionButton` for why.
   const send = (): void => {
     if (!valid) return;
-    onSound();
+    onSound('submit');
     onSubmit(prompt.roundId, text.trim());
     setSent(true);
   };
@@ -418,14 +468,14 @@ function GuessForm({
   existing: string | null;
   timer: React.ReactNode;
   onSubmit(text: string): void;
-  onSound(): void;
+  onSound(event?: 'ui_click' | 'submit'): void;
 }): React.JSX.Element {
   const [text, setText] = useState(existing ?? '');
   const [sent, setSent] = useState(existing !== null);
 
   const send = (): void => {
     if (text.trim().length === 0) return;
-    onSound();
+    onSound('submit');
     onSubmit(text.trim());
     setSent(true);
   };

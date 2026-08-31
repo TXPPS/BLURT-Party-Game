@@ -103,7 +103,7 @@ export function recordDrawingVote(state: RoomState, voterId: string, optionId: s
  * single decoy. If literally nobody wrote one, a house decoy is added so the artist
  * is not the only option on screen.
  */
-export function buildDrawingOptions(state: RoomState, now: number): void {
+export function buildDrawingOptions(state: RoomState): void {
   const drawing = currentDrawingRecord(state);
   if (drawing === undefined || drawing.options.length > 0) return;
 
@@ -131,9 +131,6 @@ export function buildDrawingOptions(state: RoomState, now: number): void {
     authorId: option.authorId,
     isReal: option.isReal,
   }));
-
-  // Anyone who never voted still counts toward the perfect-score denominator.
-  void eligiblePlayers(state, now);
 }
 
 /** Score the current drawing and bank the stats. */

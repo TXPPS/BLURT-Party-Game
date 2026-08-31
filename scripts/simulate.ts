@@ -158,28 +158,59 @@ async function waitUntil(predicate: () => boolean, timeoutMs: number): Promise<b
   return predicate();
 }
 
+/**
+ * The player-count matrix.
+ *
+ * 2 / 4 / 10 across both modes, with and without the finale, is the floor the brief
+ * sets — those are the counts where the rules genuinely differ (the house plays at
+ * two, three-way matchups start at nine). 3, 6 and 8 get one full run each to cover
+ * the single-voter case and the 2/3-competitor alternation band.
+ *
+ * Rounds are kept at 3: the round *loop* is identical at 5, and the extra two rounds
+ * per config buy nothing except wall clock. `--faults` covers 1 and 15 explicitly.
+ */
 function buildMatrix(): RunConfig[] {
   const configs: RunConfig[] = [];
-  for (const players of [2, 3, 4, 6, 8, 10]) {
+
+  for (const players of [2, 4, 10]) {
     for (const mode of ['classic', 'crude'] as const) {
       for (const drawing of [true, false]) {
-        for (const rounds of [3, 5]) {
-          // The brief requires 2/4/10 across both modes at minimum; the rest of the
-          // grid is thinned so a full pass stays inside a sane wall-clock budget.
-          const core = players === 2 || players === 4 || players === 10;
-          if (!core && !(rounds === 5 && drawing)) continue;
-          configs.push({
-            players,
-            rounds,
-            mode,
-            drawing,
-            timer: 'fast',
-            label: `${players}p ${mode} ${drawing ? 'finale' : 'no-finale'} ${rounds}r`,
-          });
-        }
+        configs.push({
+          players,
+          rounds: 3,
+          mode,
+          drawing,
+          timer: 'fast',
+          label: `${players}p ${mode} ${drawing ? 'finale' : 'no-finale'} 3r`,
+          timeoutMs: 300_000,
+        });
       }
     }
   }
+
+  for (const players of [3, 6, 8]) {
+    configs.push({
+      players,
+      rounds: 3,
+      mode: players === 6 ? 'crude' : 'classic',
+      drawing: true,
+      timer: 'fast',
+      label: `${players}p ${players === 6 ? 'crude' : 'classic'} finale 3r`,
+      timeoutMs: 300_000,
+    });
+  }
+
+  // One long match, to prove a story continuation and a 5-round STORY_UPDATE cadence.
+  configs.push({
+    players: 5,
+    rounds: 5,
+    mode: 'classic',
+    drawing: true,
+    timer: 'fast',
+    label: '5p classic finale 5r',
+    timeoutMs: 360_000,
+  });
+
   return configs;
 }
 

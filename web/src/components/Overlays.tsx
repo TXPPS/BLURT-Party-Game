@@ -14,9 +14,12 @@ import { Button, Modal } from './kit.js';
 export function AdultGate({
   onAccept,
   onDecline,
+  isHost,
 }: {
   onAccept(): void;
   onDecline(): void;
+  /** The host can back out of the setting; everybody else can only leave. */
+  isHost: boolean;
 }): React.JSX.Element {
   return (
     <Modal title="CRUDE MODE — 18+" labelledBy="adult-gate-title">
@@ -34,7 +37,7 @@ export function AdultGate({
           I AM 18 OR OVER — LET ME IN
         </Button>
         <Button variant="ghost" block onClick={onDecline}>
-          NO THANKS
+          {isHost ? 'NO THANKS — GO BACK TO CLASSIC' : 'NO THANKS'}
         </Button>
         <div className="hazard" aria-hidden="true" />
       </div>

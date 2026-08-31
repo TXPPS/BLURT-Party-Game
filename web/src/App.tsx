@@ -78,7 +78,8 @@ export function App(): React.JSX.Element {
       onPrefs={updatePrefs}
       levels={audio.levels}
       onLevels={audio.setLevels}
-      onSound={() => audio.ui('ui_click')}
+      onSound={(event) => audio.ui(event ?? 'ui_click')}
+      onCue={(event) => audio.cue(event)}
       onHome={goHome}
     />
   );
