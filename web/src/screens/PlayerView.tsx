@@ -37,6 +37,8 @@ export interface PlayerViewProps {
   onDrawingVote(roundId: string, optionId: string): void;
   onSound(event?: 'ui_click' | 'submit' | 'vote_cast' | 'timer_warning' | 'timer_out'): void;
   onAdvanceReady(ready: boolean): void;
+  /** Host force-advance, available on the host's own device too. */
+  onAdvance(): void;
 }
 
 
@@ -118,7 +120,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
             ))}
           </div>
           <p className="faint center">Voting opens when everybody has read them.</p>
-          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} onAdvance={props.onAdvance} />
         </div>
       );
 
@@ -179,7 +181,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
           </div>
           <Scoreboard rows={view.leaderboard} />
           <p className="faint center">The full breakdown is below.</p>
-          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} onAdvance={props.onAdvance} />
         </div>
       );
 
@@ -197,7 +199,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
           {/* Deliberately not "look up": plenty of groups play with no shared screen
               at all, and the condensed group view is right below these words. */}
           <Waiting message="Reading it out" detail="This is the good bit." />
-          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} onAdvance={props.onAdvance} />
         </div>
       );
 
@@ -309,7 +311,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
           </div>
           <Scoreboard rows={view.leaderboard} />
           <p className="faint center">The full breakdown is below.</p>
-          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} />
+          <ReadyToAdvance you={state.you} onReady={props.onAdvanceReady} onAdvance={props.onAdvance} />
         </div>
       );
 

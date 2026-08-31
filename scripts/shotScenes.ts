@@ -16,7 +16,8 @@ import {
   auditPage,
   newRoom,
   artistPages,
-  playDrawing,
+  playDrawingPhase,
+  playShowcase,
   playRound,
   readyAll,
   scribble,
@@ -251,13 +252,16 @@ export const SCENES: Scene[] = [
 
       // Every artist gets a turn, so the finale has to be played out rather than
       // waited out — three drawings left to their own timers is six minutes.
+      // Everybody draws in one window, then each picture is shown in turn — so the
+      // drawing phase is outside the loop and only the showcase repeats.
+      await playDrawingPhase(pages);
       for (let drawing = 0; drawing < 4; drawing += 1) {
         const phase = await pages[0]!
           .locator('[data-phase]')
           .getAttribute('data-phase')
           .catch(() => null);
         if (phase === 'FINAL_RESULTS') break;
-        await playDrawing(pages);
+        await playShowcase(pages);
         await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
         await sleep(600);
       }

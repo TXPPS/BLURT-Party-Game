@@ -318,9 +318,12 @@ export function SubmissionTally({
 export function ReadyToAdvance({
   you,
   onReady,
+  onAdvance,
 }: {
   you: StateMessage['you'];
   onReady(ready: boolean): void;
+  /** Host override. Ends the phase regardless of the count. */
+  onAdvance(): void;
 }): React.JSX.Element | null {
   if (!you.skipOffered) return null;
   const waiting = Math.max(0, you.skipTotal - you.skipReadyCount);
@@ -338,6 +341,15 @@ export function ReadyToAdvance({
         {you.skipReadyCount} of {you.skipTotal} ready
         {waiting > 0 && you.skipReady ? ' · we go when everybody is' : ''}
       </p>
+      {/* The host's override lives here as well as on the shared screen. It used to
+          exist only in the non-condensed group view, which meant a host playing on a
+          phone — the common case — could not move the room on at all, and simply sat
+          watching a count they had no way to overrule. */}
+      {you.isHost && (
+        <ActionButton variant="ghost" block onClick={onAdvance}>
+          CONTINUE
+        </ActionButton>
+      )}
     </div>
   );
 }

@@ -250,19 +250,25 @@ export async function artistPages(pages: readonly Page[]): Promise<Page[]> {
 }
 
 /**
- * The finale: everybody draws at once, then each picture is shown in turn.
+ * The drawing window. Happens **once per match**, not once per drawing.
  *
- * All artists must submit or the phase sits on its deadline, so this scribbles on
- * every canvas rather than just the first one it finds.
+ * This used to be folded into one `playDrawing`, which then waited for DRAWING_ACTIVE
+ * again on the second showcase — a phase that never comes back — and sat there until
+ * the scene timed out. Splitting the two makes the shape of the finale explicit.
  */
-export async function playDrawing(pages: Page[]): Promise<void> {
+export async function playDrawingPhase(pages: Page[]): Promise<void> {
   const host = pages[0] as Page;
   await waitForPhase(host, 'DRAWING_ACTIVE');
+  // All artists must submit or the phase waits out its deadline.
   for (const artist of await artistPages(pages)) {
     await scribble(artist);
     await artist.getByRole('button', { name: 'THAT IS MY FINAL ANSWER' }).click().catch(() => undefined);
   }
+}
 
+/** One picture's showcase: everyone guesses, everyone votes, the truth lands. */
+export async function playShowcase(pages: Page[]): Promise<void> {
+  const host = pages[0] as Page;
   await waitForPhase(host, 'DRAWING_GUESS');
   await Promise.all(
     pages.map(async (page, index) => {
@@ -278,4 +284,5 @@ export async function playDrawing(pages: Page[]): Promise<void> {
   await voteAll(pages);
   await waitForPhase(host, 'DRAWING_RESULTS');
 }
+
 
