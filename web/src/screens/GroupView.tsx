@@ -281,9 +281,12 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
             {timer}
           </div>
 
-          {/* An artist's own device is showing them a canvas; the shared screen is
-              the one place the rest of the room can watch the count move. */}
-          {state.you.role !== 'ARTIST' && (
+          {/* A non-artist's own controls are already the holding screen, tally and
+              all, so the condensed strip underneath them would print the same two
+              lines twice. An artist sees only a canvas, so for them the strip is
+              the one place the count appears — which is why the eyebrow above sits
+              outside this guard. */}
+          {state.you.role !== 'ARTIST' && !condensed && (
             <>
               <PhaseTitle
                 title={
