@@ -352,8 +352,8 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
     case 'FINAL_RESULTS':
       return (
         <div className="stack stack--loose">
-          <PhaseTitle eyebrow="That is the game" title="Final scores" />
-          <ScoreboardReveal rows={view.leaderboard} />
+          {!condensed && <PhaseTitle eyebrow="That is the game" title="Final scores" />}
+          {!condensed && <ScoreboardReveal rows={view.leaderboard} />}
           <Awards awards={view.awards} />
           <Highlights highlights={view.highlights} />
           <details>
@@ -366,7 +366,9 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
               ))}
             </div>
           </details>
-          {props.isHost && (
+          {/* The player's own controls carry these when this is a condensed strip;
+              rendering them here too put two identical pairs on one screen. */}
+          {props.isHost && !condensed && (
             <div className="row row--center">
               <ActionButton variant="primary" onClick={props.onPlayAgain}>
                 PLAY AGAIN

@@ -264,6 +264,7 @@ export function Room(props: RoomProps): React.JSX.Element {
           prefs={prefs}
           onPrefs={onPrefs}
           canBigScreen
+          isHost={state.you.isHost}
           onLeave={room.leave}
           onClose={() => setMenuOpen(false)}
         />

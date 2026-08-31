@@ -63,8 +63,16 @@ export function clearSession(): void {
  * ------------------------------------------------------------------ */
 
 export interface DevicePrefs {
-  /** This device plays the dramatic stings (default: only the big screen does). */
-  playDramaticSfx: boolean;
+  /**
+   * Whether this device plays the server-driven dramatic stings.
+   *
+   * `null` means "decide for me", which is the default and resolves to: yes if this
+   * device is the host or is showing the big-screen layout, no otherwise. That is the
+   * behaviour the design asks for — the shared screen carries the drama, and a room
+   * full of phones does not echo it — while still letting a fully remote player turn
+   * it on for themselves. Once somebody touches the toggle their choice sticks.
+   */
+  playDramaticSfx: boolean | null;
   /** Show the condensed group view under the player controls. */
   showGroupView: boolean;
   /** Render the shared big-screen layout instead of the player controls. */
@@ -72,10 +80,15 @@ export interface DevicePrefs {
 }
 
 export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
-  playDramaticSfx: false,
+  playDramaticSfx: null,
   showGroupView: true,
   bigScreen: false,
 };
+
+/** Resolve the `null` ("decide for me") case against what this device actually is. */
+export function playsDramaticSfx(prefs: DevicePrefs, isHost: boolean): boolean {
+  return prefs.playDramaticSfx ?? (isHost || prefs.bigScreen);
+}
 
 export function loadDevicePrefs(): DevicePrefs {
   const stored = readJson<Partial<DevicePrefs>>(globalThis.localStorage, DEVICE_PREFS_STORAGE_KEY);

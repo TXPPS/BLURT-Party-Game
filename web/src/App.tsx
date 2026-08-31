@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { SfxEventId } from '@shared/sfx.js';
 import { normalizeRoomCode } from '@shared/sanitize.js';
 import { useAudio } from './audio/useAudio.js';
-import { loadDevicePrefs, saveDevicePrefs, type DevicePrefs } from './net/session.js';
+import { loadDevicePrefs, playsDramaticSfx, saveDevicePrefs, type DevicePrefs } from './net/session.js';
 import { useRoom } from './net/useRoom.js';
 import { Home } from './screens/Home.js';
 import { Room } from './screens/Room.js';
@@ -42,9 +42,15 @@ export function App(): React.JSX.Element {
     saveDevicePrefs(next);
   }, []);
 
-  const audio = useAudio('classic', prefs.playDramaticSfx);
+  // `isHost` only becomes known once the room answers, so the audio hook is fed the
+  // resolved value each render rather than a value frozen at mount.
+  const [isHost, setIsHost] = useState(false);
+  const audio = useAudio('classic', playsDramaticSfx(prefs, isHost));
   const onCue = useCallback((event: SfxEventId) => audio.cue(event), [audio]);
   const room = useRoom(target?.code ?? null, target?.intent ?? 'join', onCue);
+
+  const hostNow = room.state?.you.isHost ?? false;
+  useEffect(() => setIsHost(hostNow), [hostNow]);
 
   const goHome = useCallback(() => {
     const url = new URL(location.href);

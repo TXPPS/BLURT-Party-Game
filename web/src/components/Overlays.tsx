@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import type { MixerLevels } from '../audio/synth.js';
-import type { DevicePrefs } from '../net/session.js';
+import { playsDramaticSfx, type DevicePrefs } from '../net/session.js';
 import { Button, Modal } from './kit.js';
 
 /**
@@ -53,6 +53,7 @@ export function DeviceMenu({
   onLeave,
   onClose,
   canBigScreen,
+  isHost,
 }: {
   levels: MixerLevels;
   onLevels(next: MixerLevels): void;
@@ -61,6 +62,7 @@ export function DeviceMenu({
   onLeave(): void;
   onClose(): void;
   canBigScreen: boolean;
+  isHost: boolean;
 }): React.JSX.Element {
   return (
     <Modal title="This device" onClose={onClose}>
@@ -90,8 +92,12 @@ export function DeviceMenu({
 
         <Toggle
           label="Play the dramatic sounds on this device"
-          hint="Off by default so a room full of phones does not echo. Turn it on if this is the only screen."
-          checked={prefs.playDramaticSfx}
+          hint={
+            prefs.playDramaticSfx === null
+              ? 'Currently automatic: the shared screen plays them, so a room full of phones does not echo. Tap to decide for yourself.'
+              : 'Your choice, remembered on this device.'
+          }
+          checked={playsDramaticSfx(prefs, isHost)}
           onChange={(playDramaticSfx) => onPrefs({ ...prefs, playDramaticSfx })}
         />
         <Toggle

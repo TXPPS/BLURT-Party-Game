@@ -368,11 +368,22 @@ whether the new palette is still legible.
 | V18 | lobby settings | The round −/+ steppers measured 38×45, and at 320px eight forced swatch columns squeezed each colour to 25px. | Both hold a 44px floor. Caught by the automated pass, not by eye. |
 | V19 | lobby (10 players) | Join toasts stacked over the host's settings panel. | In the lobby the roster *is* the feedback, so arrivals are only announced once a match is under way. |
 | V20 | lobby (condensed strip) | The group view repeated the full roster the player's own controls already showed. | The strip keeps the room code and join URL; the roster is dropped. |
+| V22 | **final results** | The leaderboard rendered **upside-down** under `prefers-reduced-motion`. The bottom-up reveal reversed the *list* to get its reveal order, so with the animation disabled everybody saw last place at the top. | Reveal fills from the bottom while the list stays in rank order. |
+| V23 | final results (condensed strip) | PLAY AGAIN / BACK TO THE LOBBY rendered **twice**, and the leaderboard and heading with them. | The strip drops what the player's own controls already carry. |
+| V24 | audio | Dramatic stings defaulted to **off on every device, including the host's** — so out of the box nobody heard them, which is not what the design asks for. | The preference is now tri-state: `null` means "decide for me" and resolves to on for the host or the big screen, off for everybody else. A player who touches the toggle keeps their choice. |
 | V21 | lobby settings | The round **−/+ stepper was lossy under rapid taps**: both taps computed from the same not-yet-updated server value, so the second was swallowed and the number visibly lagged a thumb. Found because a scripted scene set 3 rounds and got 3 back after two decrements. | The stepper leads the server by one tap with a local value. Every other control stays a straight send-and-render; the server still re-clamps whatever arrives. |
 
 ### Automated layout pass — final result
 
-The last sweep across **320 / 390 / 768 / 1280 / 1920** reported:
+Verification sweeps after the fixes, at **320px** (the narrowest, highest-risk
+breakpoint) and **390px** (every scene, including the full drawing finale, the
+results screen and PLAY AGAIN → RETURN TO LOBBY), both reported:
+
+```
+✓ no overflow, undersized targets or unlabelled controls found.
+```
+
+with **zero failed captures**. Across the full sweep at 320 / 390 / 768 / 1280 / 1920:
 
 - **zero** horizontal overflow, on any screen, at any width
 - **zero** controls without an accessible name
@@ -707,7 +718,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 
 | | Criterion | Evidence |
 |---|---|---|
-| ✅ | `pnpm dev` starts client + worker with no errors or console warnings | Both run; Playwright captures zero `pageerror` and zero console errors across the whole sweep |
+| ✅ | `pnpm dev` starts client + worker with no errors or console warnings | Verified: worker answers on :8787, client on :5173, and Vite proxies `/api` through to the worker. Playwright captures zero `pageerror` and zero console errors across the whole sweep. The only log noise is `wrangler` failing to fetch Cloudflare's `Request.cf` metadata through this sandbox's egress proxy — an environment artefact, not the project's |
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |

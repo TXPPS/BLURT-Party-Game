@@ -40,18 +40,22 @@ export function Scoreboard({ rows, showDelta = true }: { rows: readonly Leaderbo
 export function ScoreboardReveal({ rows }: { rows: readonly LeaderboardRow[] }): React.JSX.Element {
   const reduced =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ordered = [...rows].reverse();
-  const [revealed, setRevealed] = useState(reduced ? ordered.length : 0);
+  const [revealed, setRevealed] = useState(reduced ? rows.length : 0);
 
   useEffect(() => {
-    if (reduced || revealed >= ordered.length) return;
+    if (reduced || revealed >= rows.length) return;
     const timer = setTimeout(() => setRevealed((n) => n + 1), 900);
     return () => clearTimeout(timer);
-  }, [revealed, ordered.length, reduced]);
+  }, [revealed, rows.length, reduced]);
+
+  // Fills from the bottom up while staying in rank order. Reversing the *list* to
+  // get the reveal order left the finished table upside-down — which is what
+  // everybody sees immediately under `prefers-reduced-motion`.
+  const visible = rows.slice(Math.max(0, rows.length - revealed));
 
   return (
     <ol className="scores" aria-label="Final scores">
-      {ordered.slice(0, revealed).map((row) => (
+      {visible.map((row) => (
         <li
           key={row.playerId}
           className="score"
