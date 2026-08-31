@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM"],
+    // `scripts/screenshots.ts` evaluates callbacks inside the browser via Playwright,
+    // so the tooling project needs DOM types even though it runs under Node.
     "types": ["node"],
     "outDir": ".tsbuild/tools"
   },

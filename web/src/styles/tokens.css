@@ -1,0 +1,126 @@
+/**
+ * BLURT — structural design tokens.
+ *
+ * Deliberately colourless. Every colour comes from `brand.ts`, which writes
+ * `--c-*` custom properties into `:root` before first paint, so re-theming the whole
+ * game means editing one TypeScript file and nothing else.
+ *
+ * The look: printed card. Hard offset shadows instead of soft elevation, 3px ink
+ * outlines, generously and *slightly inconsistently* rounded corners, and everything
+ * sitting a degree or two off square as though a person put it down by hand.
+ */
+
+@font-face {
+  font-family: 'Fredoka';
+  src: url('/fonts/fredoka-500-600.woff2') format('woff2-variations');
+  font-weight: 500 600;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-400-700.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root {
+  /* ---- Type ------------------------------------------------------- */
+  --font-display: 'Fredoka', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-code: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+
+  /* Fluid scale. The room code is the largest thing on the host screen by design. */
+  --t-micro: clamp(0.68rem, 0.66rem + 0.1vw, 0.75rem);
+  --t-small: clamp(0.8rem, 0.76rem + 0.2vw, 0.9rem);
+  --t-body: clamp(0.95rem, 0.9rem + 0.25vw, 1.06rem);
+  --t-lead: clamp(1.06rem, 0.98rem + 0.4vw, 1.25rem);
+  --t-h3: clamp(1.2rem, 1.05rem + 0.7vw, 1.55rem);
+  --t-h2: clamp(1.5rem, 1.2rem + 1.4vw, 2.3rem);
+  --t-h1: clamp(2rem, 1.4rem + 3vw, 3.6rem);
+  --t-hero: clamp(2.6rem, 1.4rem + 6vw, 6rem);
+  --t-code: clamp(3.4rem, 1.5rem + 11vw, 11rem);
+
+  --lh-tight: 1.05;
+  --lh-snug: 1.25;
+  --lh-body: 1.55;
+
+  /* ---- Space ------------------------------------------------------ */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+
+  --page-max: 78rem;
+  --column-max: 42rem;
+
+  /* ---- Shape ------------------------------------------------------ */
+  /* Slightly inconsistent on purpose — hand-cut, not machine-cut. */
+  --r-card: 20px;
+  --r-card-alt: 18px;
+  --r-card-loose: 22px;
+  --r-button: 16px;
+  --r-pill: 999px;
+  --r-input: 14px;
+
+  --border: 3px;
+  --border-thin: 2px;
+
+  /* Hard offset shadows. No blur anywhere in this design. */
+  --shadow-sm: 2px 2px 0 var(--c-ink);
+  --shadow: 4px 4px 0 var(--c-ink);
+  --shadow-lg: 7px 7px 0 var(--c-ink);
+  --shadow-press: 1px 1px 0 var(--c-ink);
+
+  /* ---- Motion ----------------------------------------------------- */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --d-fast: 120ms;
+  --d-base: 170ms;
+  --d-slow: 220ms;
+
+  /* ---- Targets ---------------------------------------------------- */
+  --tap-min: 48px;
+  --tap-primary: 56px;
+
+  /* Paper grain: one tiny inline SVG, tiled. No image request. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/**
+ * Crude mode: same system, hotter accents (supplied by brand.ts) plus a rougher
+ * hand — messier rotations and a heavier outline.
+ */
+:root[data-mode='crude'] {
+  --r-card: 18px;
+  --r-card-alt: 24px;
+  --border: 3px;
+  --shadow: 5px 5px 0 var(--c-ink);
+  --shadow-lg: 8px 8px 0 var(--c-ink);
+}
+
+/**
+ * Respect the OS setting. Information is never carried by motion alone — every
+ * animation here is decoration on top of a state that is already readable.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-fast: 1ms;
+    --d-base: 1ms;
+    --d-slow: 1ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

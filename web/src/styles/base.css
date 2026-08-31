@@ -1,0 +1,401 @@
+/**
+ * BLURT — reset, layout primitives and the component kit.
+ *
+ * Plain CSS with custom properties. No utility framework, no CSS-in-JS runtime —
+ * the whole design system is this file plus `tokens.css`, and it ships as static
+ * CSS with zero JavaScript cost.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  /* Flat warm cream. The grain is applied *once*, by the overlay below — blending it
+     into the background as well multiplied the noise and turned the paper grey. */
+  background-color: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  overflow-x: hidden;
+}
+
+/* Paper grain: a single very faint tiled layer, never strong enough to move a
+   contrast ratio. Fixed so it does not scroll with the content. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--grain);
+  background-size: 120px 120px;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: multiply;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Visible, high-contrast focus everywhere. Never removed, never a hairline. */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Layout
+ * ------------------------------------------------------------------ */
+
+.app {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-4) var(--s-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  flex: 1;
+}
+
+.page--narrow {
+  max-width: var(--column-max);
+}
+
+.page--center {
+  justify-content: center;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.stack--tight {
+  gap: var(--s-2);
+}
+
+.stack--loose {
+  gap: var(--s-6);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.row--center {
+  justify-content: center;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Card
+ * ------------------------------------------------------------------ */
+
+.card {
+  position: relative;
+  background: var(--c-card);
+  border: var(--border) solid var(--c-ink);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-4);
+}
+
+.card--alt {
+  border-radius: var(--r-card-alt);
+}
+
+.card--sunken {
+  background: var(--c-card-sunken);
+  box-shadow: var(--shadow-sm);
+}
+
+.card--flat {
+  box-shadow: none;
+}
+
+.card--tilt-l {
+  transform: rotate(-1.2deg);
+}
+
+.card--tilt-r {
+  transform: rotate(1deg);
+}
+
+.card__title {
+  font-family: var(--font-display);
+  font-size: var(--t-h3);
+  margin-bottom: var(--s-2);
+}
+
+/* ------------------------------------------------------------------ *
+ * Buttons
+ * ------------------------------------------------------------------ */
+
+.btn {
+  --btn-bg: var(--c-card);
+  --btn-fg: var(--c-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tap-min);
+  padding: var(--s-3) var(--s-5);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-body);
+  letter-spacing: 0.02em;
+  border: var(--border) solid var(--c-ink);
+  border-radius: var(--r-button);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition:
+    transform var(--d-fast) var(--ease-spring),
+    box-shadow var(--d-fast) var(--ease-spring),
+    background-color var(--d-fast) linear;
+  text-align: center;
+  text-decoration: none;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-press);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--primary {
+  --btn-bg: var(--c-primary);
+  --btn-fg: var(--c-primary-ink);
+  min-height: var(--tap-primary);
+  font-size: var(--t-lead);
+  padding: var(--s-3) var(--s-6);
+}
+
+.btn--danger {
+  --btn-bg: var(--c-danger);
+  --btn-fg: var(--c-card);
+}
+
+.btn--ghost {
+  --btn-bg: transparent;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+  background: var(--c-card);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--small {
+  /* Still comfortably tappable. Icon-only controls use --tap-min in full. */
+  min-height: 44px;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--t-small);
+  border-radius: 12px;
+}
+
+/* Icon-only buttons keep the full 48x48 target even though the glyph is tiny. */
+.btn--icon {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
+  border-radius: var(--r-pill);
+  font-size: var(--t-lead);
+}
+
+/* ------------------------------------------------------------------ *
+ * Inputs
+ * ------------------------------------------------------------------ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.field__label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-small);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  min-height: var(--tap-primary);
+  padding: var(--s-3);
+  background: var(--c-card);
+  border: var(--border) solid var(--c-ink);
+  border-radius: var(--r-input);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--t-lead);
+}
+
+.textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: var(--lh-snug);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+.input--code {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1rem + 6vw, 3rem);
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-align: center;
+  text-transform: uppercase;
+  padding-left: 0.28em;
+}
+
+.counter {
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-faint);
+  text-align: right;
+}
+
+.counter--warn {
+  color: var(--c-danger);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ *
+ * Type helpers
+ * ------------------------------------------------------------------ */
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+}
+
+.lead {
+  font-size: var(--t-lead);
+  line-height: var(--lh-snug);
+}
+
+.muted {
+  color: var(--c-ink-soft);
+}
+
+.faint {
+  color: var(--c-ink-faint);
+  font-size: var(--t-small);
+}
+
+.center {
+  text-align: center;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Long player answers must wrap, never overflow their card. */
+.breakable {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}

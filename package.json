@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n server,web -c magenta,cyan \"pnpm dev:server\" \"pnpm dev:web\"",
-    "dev:server": "wrangler dev --local --config server/wrangler.toml --port 8787",
+    "dev:server": "wrangler dev --config server/wrangler.toml --port 8787",
     "dev:web": "vite --config web/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,7 +25,8 @@
     "build": "tsc -b && vite build --config web/vite.config.ts",
     "deploy": "pnpm build && wrangler deploy --config server/wrangler.toml",
     "screenshots": "tsx scripts/screenshots.ts",
-    "verify": "pnpm lint:content && pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm lint:content && pnpm typecheck && pnpm lint && pnpm test",
+    "predev:server": "node -e \"require('fs').mkdirSync('web/dist',{recursive:true})\""
   },
   "dependencies": {
     "zod": "^4.5.4"

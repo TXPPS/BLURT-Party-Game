@@ -102,14 +102,25 @@ export interface LobbyView {
 
 export interface GameSetupView {
   phase: 'GAME_SETUP';
-  storyTitle: string;
-  genre: string;
+  /**
+   * Null until the first STORY_UPDATE. The whole hook is that players do not know
+   * what their answers are being poured into, and a title on the setup screen gives
+   * the entire game away before the first round is scored.
+   */
+  storyTitle: string | null;
+  genre: string | null;
   totalRounds: number;
   deadline: Deadline;
 }
 
 export interface RoundPromptView {
   phase: 'ROUND_PROMPT';
+  /**
+   * Opaque token for this matchup. Every submission carries it back so a message
+   * written for a round that has already moved on is rejected instead of applied.
+   * It is public because *voters* need it too, and it reveals nothing.
+   */
+  roundId: string;
   roundNumber: number;
   totalRounds: number;
   /** The disguised prompt. Shared by everyone in this matchup, so it is public. */
@@ -140,6 +151,7 @@ export interface RoundRevealView {
 
 export interface RoundVoteView {
   phase: 'ROUND_VOTE';
+  roundId: string;
   roundNumber: number;
   totalRounds: number;
   prompt: string;
@@ -168,7 +180,8 @@ export interface RoundResultsView {
 
 export interface StoryUpdateView {
   phase: 'STORY_UPDATE';
-  story: RenderedStory;
+  /** More than one once a long match has continued into a second story. */
+  stories: RenderedStory[];
   /** Slots inserted since the previous update — the ones that get stamped in. */
   freshSlotIds: string[];
   roundNumber: number;
@@ -186,6 +199,7 @@ export interface FinalStoryView {
 
 export interface DrawingSetupView {
   phase: 'DRAWING_SETUP';
+  roundId: string;
   artistId: string;
   artistName: string;
   drawingIndex: number;
@@ -195,6 +209,7 @@ export interface DrawingSetupView {
 
 export interface DrawingActiveView {
   phase: 'DRAWING_ACTIVE';
+  roundId: string;
   artistId: string;
   artistName: string;
   drawingIndex: number;
@@ -205,6 +220,7 @@ export interface DrawingActiveView {
 
 export interface DrawingGuessView {
   phase: 'DRAWING_GUESS';
+  roundId: string;
   artistId: string;
   artistName: string;
   imageDataUrl: string;
@@ -217,6 +233,7 @@ export interface DrawingGuessView {
 
 export interface DrawingVoteView {
   phase: 'DRAWING_VOTE';
+  roundId: string;
   artistId: string;
   artistName: string;
   imageDataUrl: string;
@@ -277,14 +294,20 @@ type _EveryPhaseHasAView = {
 };
 export type AssertViewCoverage = _EveryPhaseHasAView;
 
-/** Everything a single device needs about *itself*. */
+/**
+ * Everything a single device needs about *itself*.
+ *
+ * Note what is absent: whether this device is showing the big-screen layout. That
+ * is a per-device preference the client owns, not room state — the same player can
+ * flip between the group view and their controls without the server caring.
+ */
 export interface SelfView {
   playerId: string;
   isHost: boolean;
   role: import('./types.js').PlayerRole;
   score: number;
-  /** True when this device is showing the shared "big screen" layout. */
-  hostDisplay: boolean;
+  /** True while this device still needs to pass the 18+ gate. */
+  needsAdultGate: boolean;
 }
 
 export type { PublicPlayer };

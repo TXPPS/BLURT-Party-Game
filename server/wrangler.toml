@@ -1,0 +1,30 @@
+# BLURT — Cloudflare Worker + Durable Object configuration.
+#
+# One room maps to exactly one Durable Object instance, addressed by its 4-letter
+# code. That gives single-threaded authoritative state, serialised message handling,
+# per-room isolation, WebSocket fan-out inside the object, and alarm-based timers
+# with no cron infrastructure. See README → "Why Durable Objects".
+
+name = "blurt"
+main = "src/worker.ts"
+compatibility_date = "2026-08-01"
+
+# The built client is served by the same Worker in production, so there is one
+# deploy, one origin, and no CORS. `run_worker_first` keeps the API and the
+# WebSocket upgrade away from the single-page-application fallback, which would
+# otherwise answer /ws with index.html.
+[assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/ws", "/api/*"]
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomDO"]
+
+[observability]
+enabled = true

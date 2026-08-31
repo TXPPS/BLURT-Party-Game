@@ -1,0 +1,345 @@
+/**
+ * BLURT — the shared screen.
+ *
+ * Landscape-first, readable across a room, and *never required*: the same component
+ * renders in a condensed strip under a player's controls so a fully remote group
+ * still sees what is happening. Nothing here is interactive except the host's
+ * single advance button.
+ */
+
+import { brand } from '../brand.js';
+import type { StateMessage } from '@shared/protocol.js';
+import { ActionButton, AvatarBadge, Card, PhaseTitle, PlayerChip, Progress, TimerRing, Waiting } from '../components/kit.js';
+import { Scoreboard, ScoreboardReveal } from '../components/Scoreboard.js';
+import { StoryReadout, StoryView } from '../components/StoryView.js';
+import { useCountdown } from '../net/useRoom.js';
+import { Awards, Highlights } from './Results.js';
+
+export interface GroupViewProps {
+  state: StateMessage;
+  serverNow(): number;
+  isHost: boolean;
+  onAdvance(): void;
+  onPlayAgain(): void;
+  onReturnToLobby(): void;
+  condensed?: boolean;
+}
+
+export function GroupView(props: GroupViewProps): React.JSX.Element {
+  const { state, condensed = false } = props;
+  const view = state.view;
+  const deadline = 'deadline' in view && view.deadline !== null ? view.deadline.endsAt : null;
+  const countdown = useCountdown(deadline, props.serverNow);
+  const byId = new Map(state.players.map((p) => [p.id, p]));
+
+  const timer =
+    deadline === null ? null : (
+      <TimerRing seconds={countdown.seconds} fraction={countdown.fraction} label="Time left" />
+    );
+
+  const advance =
+    props.isHost && !condensed ? (
+      <ActionButton variant="primary" onClick={props.onAdvance}>
+        CONTINUE
+      </ActionButton>
+    ) : null;
+
+  switch (view.phase) {
+    case 'LOBBY':
+      return (
+        <div className="stack stack--loose">
+          <div className="stack center">
+            <h1 className={condensed ? 'logo logo--small' : 'logo'}>{brand.name}</h1>
+            {!condensed && <p className="tagline">{brand.tagline}</p>}
+          </div>
+          <div className="stack center">
+            <p className="eyebrow">Join at {joinHost(view.joinUrl)}</p>
+            <div className="roomcode__panel">
+              <span className="roomcode">{state.room.code}</span>
+            </div>
+            <p className="joinurl muted">{view.joinUrl.length > 0 ? view.joinUrl : `${location.origin}/?room=${state.room.code}`}</p>
+          </div>
+          <Card>
+            <h2 className="card__title">In the room ({state.players.filter((p) => p.identified).length}/10)</h2>
+            <ul className="roster">
+              {state.players
+                .filter((p) => p.identified)
+                .map((player) => (
+                  <li key={player.id}>
+                    <PlayerChip player={player} badge={player.ready ? 'READY' : undefined} />
+                  </li>
+                ))}
+            </ul>
+            {state.players.filter((p) => p.identified).length === 0 && (
+              <p className="muted">Waiting for the first brave soul.</p>
+            )}
+          </Card>
+        </div>
+      );
+
+    case 'GAME_SETUP':
+      return (
+        <div className="stack center">
+          <PhaseTitle eyebrow="Sealed envelope" title="A story has been chosen" />
+          <p className="lead center">
+            {view.totalRounds} rounds. Nobody is going to tell you what it is about.
+          </p>
+          {timer}
+        </div>
+      );
+
+    case 'ROUND_PROMPT':
+      return (
+        <div className="stack">
+          <div className="row row--between">
+            <p className="eyebrow">
+              Round {view.roundNumber} of {view.totalRounds}
+            </p>
+            {timer}
+          </div>
+          <div className="prompt">
+            <p className="prompt__text breakable">{view.prompt}</p>
+          </div>
+          <div className="stack stack--tight">
+            <p className="eyebrow center">Answering</p>
+            <ul className="roster row--center">
+              {view.competitorIds.map((id) => {
+                const player = byId.get(id);
+                if (player === undefined) return null;
+                return (
+                  <li key={id}>
+                    <PlayerChip
+                      player={player}
+                      badge={view.submittedIds.includes(id) ? 'IN' : 'TYPING…'}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      );
+
+    case 'ROUND_WAITING':
+      return (
+        <div className="stack center">
+          <PhaseTitle eyebrow={`Round ${view.roundNumber}`} title="Answers are in" />
+          <Waiting message="One of these is about to ruin somebody" />
+        </div>
+      );
+
+    case 'ROUND_REVEAL':
+    case 'ROUND_VOTE':
+      return (
+        <div className="stack">
+          <div className="row row--between">
+            <p className="eyebrow">
+              Round {view.roundNumber} of {view.totalRounds}
+            </p>
+            {timer}
+          </div>
+          <div className="prompt">
+            <p className="prompt__text breakable">{view.prompt}</p>
+          </div>
+          <div className="answers answers--wide">
+            {view.answers.map((answer) => (
+              <div key={answer.id} className="answer breakable">
+                {answer.text}
+              </div>
+            ))}
+          </div>
+          {view.phase === 'ROUND_VOTE' ? (
+            <Progress done={view.votesIn} total={view.votersTotal} label="Votes in" />
+          ) : (
+            <div className="row row--center">{advance}</div>
+          )}
+        </div>
+      );
+
+    case 'ROUND_RESULTS':
+      return (
+        <div className="stack">
+          <PhaseTitle
+            eyebrow={`Round ${view.roundNumber} of ${view.totalRounds}`}
+            title={
+              view.nobodyVoted
+                ? 'NOBODY VOTED. THE UNIVERSE DECIDES.'
+                : view.wasCoinFlip
+                  ? 'TIE. FLIPPING A COIN.'
+                  : view.wasCleanSweep
+                    ? 'CLEAN SWEEP'
+                    : 'The verdict'
+            }
+          />
+          <div className="answers answers--wide">
+            {view.answers.map((answer) => (
+              <div
+                key={answer.id}
+                className="answer breakable"
+                data-winner={answer.isWinner}
+              >
+                {answer.text}
+                <div className="answer__meta">
+                  <AvatarBadge
+                    avatarId={answer.authorAvatarId ?? ''}
+                    name={answer.authorName}
+                    size="sm"
+                    seed={answer.authorId ?? 'house'}
+                  />
+                  <span className="breakable">
+                    {answer.authorName}
+                    {answer.isFallback && <span className="faint"> · the house wrote this</span>}
+                  </span>
+                  <span className="answer__votes">
+                    {answer.votes} {answer.votes === 1 ? 'vote' : 'votes'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Scoreboard rows={view.leaderboard} />
+          <div className="row row--center">{advance}</div>
+        </div>
+      );
+
+    case 'STORY_UPDATE':
+      return (
+        <div className="stack">
+          <PhaseTitle eyebrow="The story so far" title="This is what you have done" />
+          {view.stories.map((story) => (
+            <StoryView key={story.storyId} story={story} freshSlotIds={view.freshSlotIds} />
+          ))}
+          <div className="row row--center">{advance}</div>
+        </div>
+      );
+
+    case 'FINAL_STORY':
+      return (
+        <div className="stack">
+          <PhaseTitle eyebrow="All of it" title="The finished article" />
+          <StoryReadout stories={view.stories} lineDelayMs={view.lineDelayMs} />
+          <div className="row row--center">{advance}</div>
+        </div>
+      );
+
+    case 'DRAWING_SETUP':
+    case 'DRAWING_ACTIVE':
+      return (
+        <div className="stack center">
+          <div className="row row--between">
+            <p className="eyebrow">
+              Drawing {view.drawingIndex} of {view.drawingTotal}
+            </p>
+            {timer}
+          </div>
+          <PhaseTitle title={`${view.artistName} is drawing`} sub="Nobody else knows what." />
+          <Waiting message={view.phase === 'DRAWING_ACTIVE' && view.submitted ? 'Finished' : 'Scribbling'} />
+        </div>
+      );
+
+    case 'DRAWING_GUESS':
+      return (
+        <div className="stack">
+          <div className="row row--between">
+            <p className="eyebrow">{view.artistName} drew this</p>
+            {timer}
+          </div>
+          <div className="drawing-frame">
+            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+          </div>
+          <Progress done={view.guessesIn} total={view.guessersTotal} label="Guesses in" />
+        </div>
+      );
+
+    case 'DRAWING_VOTE':
+      return (
+        <div className="stack">
+          <div className="row row--between">
+            <PhaseTitle eyebrow="One of these is true" title="Which was the real prompt?" />
+            {timer}
+          </div>
+          <div className="drawing-frame">
+            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+          </div>
+          <div className="answers answers--wide">
+            {view.options.map((option) => (
+              <div key={option.id} className="answer breakable">
+                {option.text}
+              </div>
+            ))}
+          </div>
+          <Progress done={view.votesIn} total={view.votersTotal} label="Votes in" />
+        </div>
+      );
+
+    case 'DRAWING_RESULTS':
+      return (
+        <div className="stack">
+          <PhaseTitle
+            eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`}
+            title={view.perfect ? 'Everyone got it' : 'The truth'}
+          />
+          <div className="drawing-frame">
+            <img src={view.imageDataUrl} alt={`Drawing by ${view.artistName}`} />
+          </div>
+          <div className="answers answers--wide">
+            {view.options.map((option) => (
+              <div key={option.id} className="answer breakable" data-winner={option.isReal}>
+                {option.text}
+                <div className="answer__meta">
+                  <span className="breakable">
+                    {option.isReal ? '★ THE REAL PROMPT' : `${option.authorName} made this up`}
+                  </span>
+                  <span className="answer__votes">
+                    {option.voterIds.length} {option.voterIds.length === 1 ? 'vote' : 'votes'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Scoreboard rows={view.leaderboard} />
+          <div className="row row--center">{advance}</div>
+        </div>
+      );
+
+    case 'FINAL_RESULTS':
+      return (
+        <div className="stack stack--loose">
+          <PhaseTitle eyebrow="That is the game" title="Final scores" />
+          <ScoreboardReveal rows={view.leaderboard} />
+          <Awards awards={view.awards} />
+          <Highlights highlights={view.highlights} />
+          <details>
+            <summary className="eyebrow" style={{ cursor: 'pointer' }}>
+              Read the whole thing again
+            </summary>
+            <div className="stack" style={{ marginTop: 'var(--s-4)' }}>
+              {view.stories.map((story) => (
+                <StoryView key={story.storyId} story={story} />
+              ))}
+            </div>
+          </details>
+          {props.isHost && (
+            <div className="row row--center">
+              <ActionButton variant="primary" onClick={props.onPlayAgain}>
+                PLAY AGAIN
+              </ActionButton>
+              <ActionButton onClick={props.onReturnToLobby}>BACK TO THE LOBBY</ActionButton>
+            </div>
+          )}
+        </div>
+      );
+
+    default:
+      return <Waiting message="Waiting for the room" />;
+  }
+}
+
+/** Show just the host part of the join URL — a whole URL is unreadable across a room. */
+function joinHost(joinUrl: string): string {
+  try {
+    return new URL(joinUrl.length > 0 ? joinUrl : location.origin).host;
+  } catch {
+    return location.host;
+  }
+}

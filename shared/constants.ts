@@ -53,6 +53,16 @@ export const DISCONNECT_GRACE_MS = 90_000;
 /** How long a missing host holds authority before it migrates to someone present. */
 export const HOST_MIGRATION_DELAY_MS = 60_000;
 
+/**
+ * How long the room waits on somebody who has gone offline and is the *only* thing
+ * a phase is waiting for.
+ *
+ * The 90-second grace window is about keeping a seat and a score; it is far too long
+ * to make nine other people watch a canvas nobody is drawing on. When a disconnect
+ * leaves a phase blocked on one absent person, its deadline is shortened to this.
+ */
+export const ABANDONED_PHASE_MS = 22_000;
+
 /** How many previously-played story ids a room remembers, to avoid repeats. */
 export const RECENT_STORY_MEMORY = 4;
 
