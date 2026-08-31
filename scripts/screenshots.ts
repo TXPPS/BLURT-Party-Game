@@ -90,11 +90,14 @@ async function main(): Promise<void> {
         auditFindings.push(...(await auditPage(host, `${scene.name}-host@${width}`)));
         if (scene.shoot === 'both' || scene.shoot === 'player') {
           let player = (pages[1] ?? pages[0]) as Page;
-          if (scene.shootIndex === 'artist') {
-            const found = await Promise.all(
-              pages.map(async (p) => ((await p.locator('.canvas-wrap canvas').count()) > 0 ? p : null)),
-            ).then((list) => list.find((p) => p !== null));
-            if (found !== undefined && found !== null) player = found;
+          if (scene.shootIndex !== undefined) {
+            const wantCanvas = scene.shootIndex === 'artist';
+            const withCanvas = await Promise.all(
+              pages.map(async (p) => ((await p.locator('.canvas-wrap canvas').count()) > 0)),
+            );
+            const index = withCanvas.findIndex((has) => has === wantCanvas);
+            const found = index >= 0 ? pages[index] : undefined;
+            if (found !== undefined) player = found;
           }
           await player.screenshot({ path: `${OUT}/${scene.name}-player@${width}.png`, fullPage: true });
           auditFindings.push(...(await auditPage(player, `${scene.name}-player@${width}`)));

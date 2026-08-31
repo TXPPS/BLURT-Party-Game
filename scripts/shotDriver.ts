@@ -32,7 +32,12 @@ export interface Scene {
   /** Only shoot these widths (default: all). */
   widths?: number[];
   /** Shoot the artist's device rather than player index 1. */
-  shootIndex?: 'artist';
+  /**
+   * Which player device to photograph. 'artist' finds a live canvas; 'waiter' finds
+   * somebody *without* one, which is the only way to photograph the holding screen
+   * now that several people draw at once.
+   */
+  shootIndex?: 'artist' | 'waiter';
 }
 
 export interface SceneContext {
@@ -236,14 +241,24 @@ export async function scribble(page: Page): Promise<void> {
   }
 }
 
-/** One drawing: artist draws, everyone guesses, everyone votes. */
+/** Every page currently showing a canvas — several at once, since drawing is shared. */
+export async function artistPages(pages: readonly Page[]): Promise<Page[]> {
+  const found = await Promise.all(
+    pages.map(async (page) => ((await page.locator('.canvas-wrap canvas').count()) > 0 ? page : null)),
+  );
+  return found.filter((page): page is Page => page !== null);
+}
+
+/**
+ * The finale: everybody draws at once, then each picture is shown in turn.
+ *
+ * All artists must submit or the phase sits on its deadline, so this scribbles on
+ * every canvas rather than just the first one it finds.
+ */
 export async function playDrawing(pages: Page[]): Promise<void> {
   const host = pages[0] as Page;
   await waitForPhase(host, 'DRAWING_ACTIVE');
-  const artist = await Promise.all(
-    pages.map(async (page) => ((await page.locator('.canvas-wrap canvas').count()) > 0 ? page : null)),
-  ).then((found) => found.find((p) => p !== null) ?? null);
-  if (artist !== null) {
+  for (const artist of await artistPages(pages)) {
     await scribble(artist);
     await artist.getByRole('button', { name: 'THAT IS MY FINAL ANSWER' }).click().catch(() => undefined);
   }

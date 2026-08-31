@@ -10,6 +10,7 @@ import type { PrivateMessage } from '../../shared/protocol.js';
 import {
   toPublicPlayer,
 } from './roomState.js';
+import { drawingForArtist } from './finale.js';
 import { slotFor } from './story.js';
 import type { RoomState, ServerPlayer } from './types.js';
 import { currentDrawing, currentMatchup } from './viewParts.js';
@@ -65,13 +66,17 @@ export function buildPrivate(state: RoomState, player: ServerPlayer): PrivateMes
     }
   }
 
-  if (drawing !== undefined && drawing.artistId === player.id) {
-    if (state.phase === 'DRAWING_SETUP' || state.phase === 'DRAWING_ACTIVE') {
+  // Drawing is simultaneous, so the brief is looked up by *this* player rather than
+  // taken from the showcase pointer: during DRAWING_ACTIVE several artists each need
+  // their own prompt at the same time, and none of them is "current".
+  if (state.phase === 'DRAWING_SETUP' || state.phase === 'DRAWING_ACTIVE') {
+    const mine = drawingForArtist(state, player.id);
+    if (mine !== undefined) {
       payload.drawingPrompt = {
-        roundId: drawing.roundId,
-        subject: drawing.subject,
-        context: drawing.context,
-        submitted: drawing.hasImage,
+        roundId: mine.roundId,
+        subject: mine.subject,
+        context: mine.context,
+        submitted: mine.hasImage,
       };
       hasContent = true;
     }

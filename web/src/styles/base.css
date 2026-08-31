@@ -365,6 +365,34 @@ ul {
 }
 
 /* ------------------------------------------------------------------ *
+ * Submission tally — the live "3 of 4 have handed in" during drawing.
+ * Big on purpose: it is the only moving thing on a non-artist's screen.
+ * ------------------------------------------------------------------ */
+
+.tally {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.1em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.tally__value {
+  font-size: var(--t-h1);
+  font-weight: 600;
+  color: var(--c-accent);
+}
+
+.tally__of {
+  font-size: var(--t-h3);
+  font-weight: 500;
+  color: var(--c-ink-faint);
+}
+
+/* ------------------------------------------------------------------ *
  * Type helpers
  * ------------------------------------------------------------------ */
 

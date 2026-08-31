@@ -1,7 +1,14 @@
 /**
  * BLURT — the drawing finale phases.
  *
- * SETUP → ACTIVE → GUESS → VOTE → RESULTS, once per artist.
+ * SETUP → ACTIVE happen once. Every selected artist draws at the same time, on their
+ * own device, inside one shared window.
+ *
+ * GUESS → VOTE → RESULTS then run once per drawing, in sequence. Those are the
+ * showcase: the whole room is meant to look at one picture together, so they stay
+ * one-at-a-time on purpose. Drawing is solitary work and was the part that did not
+ * need an audience — running it sequentially made three artists cost three drawing
+ * timers and left everybody else watching a progress bar.
  *
  * Every phase degrades rather than stalls: an artist who never submits still gets
  * their drawing shown (blank, which is funnier), a guesser who times out gets a
@@ -15,16 +22,18 @@ import {
 } from '../../../shared/constants.js';
 import {
   advanceDrawingIndex,
+  allDrawings,
   buildDrawingOptions,
   currentDrawingRecord,
   guessersFor,
   uniqueHouseDecoyFor,
   isLastDrawing,
+  outstandingArtists,
   recordGuess,
   resolveCurrentDrawing,
 } from '../finale.js';
 import { drawMs, voteMs } from '../match.js';
-import { findPlayer, isEligible, setPhaseDeadline, shortenPhaseDeadline } from '../roomState.js';
+import { findPlayer, setPhaseDeadline, shortenPhaseDeadline } from '../roomState.js';
 import type { PhaseContext, PhaseHandler } from '../types.js';
 
 export const drawingSetup: PhaseHandler = {
@@ -47,13 +56,10 @@ export const drawingActive: PhaseHandler = {
     setPhaseDeadline(ctx.state, ctx.now, drawMs(ctx.state));
   },
 
+  /** Done when nobody is still able to draw — submitted, or no longer in the room. */
   isComplete(ctx) {
-    const drawing = currentDrawingRecord(ctx.state);
-    if (drawing === undefined) return true;
-    if (drawing.hasImage) return true;
-    // An artist who has left cannot finish; move on rather than wait them out.
-    const artist = findPlayer(ctx.state, drawing.artistId);
-    return artist === undefined || !isEligible(artist, ctx.now);
+    if (allDrawings(ctx.state).length === 0) return true;
+    return outstandingArtists(ctx.state, ctx.now).length === 0;
   },
 
   onTimeout(ctx) {
@@ -61,15 +67,22 @@ export const drawingActive: PhaseHandler = {
   },
 
   /**
-   * The artist is the only person who can end this phase, so if their phone drops
-   * off, everybody else is watching a canvas nobody is drawing on. Wait a short
-   * while for them rather than the full drawing timer or the full grace window.
+   * Only cut the phase short when *nobody* is still drawing.
+   *
+   * Sequentially this was simple: one artist, and if their phone dropped there was
+   * no reason to wait. With everyone drawing at once, one person leaving must not
+   * take time away from the others who are mid-picture — so the deadline only moves
+   * in when every artist who has not submitted is disconnected. An artist who left
+   * for good stops being outstanding at all, and `isComplete` ends the phase.
    */
   onPresenceChange(ctx) {
-    const drawing = currentDrawingRecord(ctx.state);
-    if (drawing === undefined || drawing.hasImage) return;
-    const artist = findPlayer(ctx.state, drawing.artistId);
-    if (artist !== undefined && artist.connected) return;
+    const outstanding = outstandingArtists(ctx.state, ctx.now);
+    if (outstanding.length === 0) return;
+    const anyoneStillHere = outstanding.some((drawing) => {
+      const artist = findPlayer(ctx.state, drawing.artistId);
+      return artist !== undefined && artist.connected;
+    });
+    if (anyoneStillHere) return;
     shortenPhaseDeadline(ctx.state, ctx.now, ABANDONED_PHASE_MS);
   },
 };
@@ -162,12 +175,17 @@ export const drawingResults: PhaseHandler = {
   hostCanAdvance: true,
 };
 
-/** Next drawing, or the results screen once every artist has had their turn. */
+/**
+ * Next drawing in the showcase, or the results screen once every one has been shown.
+ *
+ * Straight back to DRAWING_GUESS: the pictures already exist by this point, so there
+ * is nothing to set up and nothing to draw.
+ */
 export function advanceFinale(ctx: PhaseContext): void {
   if (isLastDrawing(ctx.state)) {
     ctx.goTo('FINAL_RESULTS');
     return;
   }
   advanceDrawingIndex(ctx.state);
-  ctx.goTo('DRAWING_SETUP');
+  ctx.goTo('DRAWING_GUESS');
 }

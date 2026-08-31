@@ -11,7 +11,7 @@ import { makeRng, randomInt, seedFromString, shuffle } from '../../shared/rng.js
 import { resolveDrawing, type DrawingOption } from '../../shared/scoring.js';
 import { shortId } from './ids.js';
 import { applyEvents, rngFor } from './match.js';
-import { eligiblePlayers, findPlayer, nextSeq } from './roomState.js';
+import { eligiblePlayers, findPlayer, isEligible, nextSeq } from './roomState.js';
 import { availableDrawingPrompts } from './story.js';
 import type { DrawingRecord, RoomState } from './types.js';
 
@@ -167,6 +167,41 @@ export function resolveCurrentDrawing(state: RoomState, now: number): void {
     perfect: outcome.perfect,
     events: outcome.events,
   };
+}
+
+/**
+ * Every artist's drawing, in showcase order.
+ *
+ * During DRAWING_ACTIVE all of these are live at once, so anything that needs to know
+ * about *the* drawing has to say which one it means. `currentDrawingRecord` is the
+ * showcase pointer and is meaningless while everybody is still drawing.
+ */
+export function allDrawings(state: RoomState): DrawingRecord[] {
+  return state.match?.drawings ?? [];
+}
+
+/** The drawing this player is responsible for, if they were picked as an artist. */
+export function drawingForArtist(state: RoomState, playerId: string): DrawingRecord | undefined {
+  return allDrawings(state).find((d) => d.artistId === playerId);
+}
+
+/**
+ * Artists who could still submit: no image yet, and still in the room.
+ *
+ * Somebody who has dropped out cannot finish, so they are not outstanding — that is
+ * what lets the phase end early instead of waiting out the clock for a dead phone.
+ */
+export function outstandingArtists(state: RoomState, now: number): DrawingRecord[] {
+  return allDrawings(state).filter((drawing) => {
+    if (drawing.hasImage) return false;
+    const artist = findPlayer(state, drawing.artistId);
+    return artist !== undefined && isEligible(artist, now);
+  });
+}
+
+/** How many drawings are in, for the "3 of 4 have submitted" counter. */
+export function submittedDrawingCount(state: RoomState): number {
+  return allDrawings(state).filter((d) => d.hasImage).length;
 }
 
 export function isLastDrawing(state: RoomState): boolean {

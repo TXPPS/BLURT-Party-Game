@@ -200,18 +200,25 @@ export function buildPublicView(
 
     case 'DRAWING_SETUP':
     case 'DRAWING_ACTIVE': {
-      const artist = drawing === undefined ? undefined : findPlayer(state, drawing.artistId);
-      const common = {
-        roundId: drawing?.roundId ?? '',
-        artistId: drawing?.artistId ?? '',
-        artistName: artist?.name ?? 'somebody',
-        drawingIndex: (match?.drawingIndex ?? 0) + 1,
-        drawingTotal: match?.drawings.length ?? 0,
+      // Everybody draws at once, so this describes the whole set rather than one
+      // artist's turn. Whether *you* have submitted is per-player and travels in the
+      // private payload instead.
+      const drawings = match?.drawings ?? [];
+      const nameOf = (artistId: string): string =>
+        findPlayer(state, artistId)?.name ?? 'somebody';
+      const artistNames = drawings.map((d) => nameOf(d.artistId));
+
+      if (state.phase === 'DRAWING_SETUP') {
+        return { phase: 'DRAWING_SETUP', artistNames, artistTotal: drawings.length, deadline };
+      }
+      return {
+        phase: 'DRAWING_ACTIVE',
+        artistNames,
+        artistTotal: drawings.length,
+        submittedCount: drawings.filter((d) => d.hasImage).length,
+        pendingArtistNames: drawings.filter((d) => !d.hasImage).map((d) => nameOf(d.artistId)),
         deadline,
       };
-      return state.phase === 'DRAWING_SETUP'
-        ? { phase: 'DRAWING_SETUP', ...common }
-        : { phase: 'DRAWING_ACTIVE', ...common, submitted: drawing?.hasImage === true };
     }
 
     case 'DRAWING_GUESS': {

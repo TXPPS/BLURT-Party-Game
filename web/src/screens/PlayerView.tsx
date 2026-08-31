@@ -11,7 +11,7 @@ import type { PrivateMessage, StateMessage } from '@shared/protocol.js';
 import { ActionButton, Card, DrawingFrame, PhaseTitle, TimerRing, Waiting } from '../components/kit.js';
 import { Scoreboard } from '../components/Scoreboard.js';
 import { useCountdown } from '../net/useRoom.js';
-import { AnswerForm, GuessForm, SpectatorBeat, useTimerSounds } from './playerParts.js';
+import { AnswerForm, DrawingHold, GuessForm, SpectatorBeat, listNames, useTimerSounds } from './playerParts.js';
 
 const DrawingCanvas = lazy(() =>
   import('../components/Canvas.js').then((m) => ({ default: m.DrawingCanvas })),
@@ -180,8 +180,8 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
       return (
         <div className="stack center">
           <PhaseTitle
-            eyebrow={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`}
-            title={state.you.role === 'ARTIST' ? 'You are drawing this one' : `${view.artistName} is drawing`}
+            eyebrow={view.artistTotal === 1 ? 'One artist' : `${view.artistTotal} artists`}
+            title={state.you.role === 'ARTIST' ? 'You are drawing' : listNames(view.artistNames, 'are drawing')}
           />
           <Waiting message="Getting the pens out" />
         </div>
@@ -190,14 +190,7 @@ export function PlayerView(props: PlayerViewProps): React.JSX.Element {
     case 'DRAWING_ACTIVE': {
       const brief = props.privateData?.drawingPrompt;
       if (state.you.role !== 'ARTIST' || brief === undefined) {
-        return (
-          <SpectatorBeat
-            timer={timer}
-            title={`${view.artistName} is drawing`}
-            body="You will be asked to guess what it was. Prepare to be wrong."
-            round={`Drawing ${view.drawingIndex} of ${view.drawingTotal}`}
-          />
-        );
+        return <DrawingHold view={view} timer={timer} />;
       }
       return (
         <Suspense fallback={<Waiting message="Loading the canvas" />}>

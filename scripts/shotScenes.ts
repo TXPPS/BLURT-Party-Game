@@ -15,6 +15,7 @@ import {
   auditFindings,
   auditPage,
   newRoom,
+  artistPages,
   playDrawing,
   playRound,
   readyAll,
@@ -151,12 +152,44 @@ export const SCENES: Scene[] = [
       await waitForPhase(pages[0]!, 'FINAL_STORY');
       await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
       await waitForPhase(pages[0]!, 'DRAWING_ACTIVE', 90_000);
-      const artist = await Promise.all(
-        pages.map(async (p) => ((await p.locator('.canvas-wrap canvas').count()) > 0 ? p : null)),
-      ).then((found) => found.find((p) => p !== null) ?? null);
-      if (artist !== null) await scribble(artist);
+      // Several canvases are live at once now; scribble on one so the shot has ink,
+      // and leave the rest unsubmitted so the phase stays open to be photographed.
+      const [artist] = await artistPages(pages);
+      if (artist !== undefined) await scribble(artist);
     },
     shootIndex: 'artist',
+  },
+  {
+    // The holding screen a non-artist sees while everybody draws at once. Six players
+    // so the room is guaranteed some non-artists (the finale runs three from six up),
+    // and one canvas is scribbled but not submitted so the counter shows partial
+    // progress rather than 0 or a full house.
+    name: '11b-drawing-hold',
+    players: 6,
+    shoot: 'both',
+    widths: [320, 390],
+    async setup({ pages }) {
+      await readyAll(pages);
+      await setRounds(pages[0]!, 3);
+      await setFinale(pages[0]!, true);
+      await pages[0]!.getByRole('button', { name: 'START THE GAME' }).click();
+      await playRound(pages);
+      await playRound(pages);
+      await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+      await playRound(pages);
+      await waitForPhase(pages[0]!, 'FINAL_STORY');
+      await pages[0]!.getByRole('button', { name: 'CONTINUE' }).first().click().catch(() => undefined);
+      await waitForPhase(pages[0]!, 'DRAWING_ACTIVE', 90_000);
+
+      // One artist submits so the tally reads "1 of N" rather than zero.
+      const [first] = await artistPages(pages);
+      if (first !== undefined) {
+        await scribble(first);
+        await first.getByRole('button', { name: 'THAT IS MY FINAL ANSWER' }).click().catch(() => undefined);
+      }
+      await sleep(400);
+    },
+    shootIndex: 'waiter',
   },
   {
     // Closes the loop the brief asks for: create → play → results → PLAY AGAIN →

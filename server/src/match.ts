@@ -11,7 +11,7 @@
  * point independently and compare.
  */
 
-import { TIMER_PRESETS, DRAWING_TIME_MULTIPLIER } from '../../shared/constants.js';
+import { TIMER_PRESETS, DRAWING_ACTIVE_MS } from '../../shared/constants.js';
 import { needsHouseAnswer, selectCompetitors, votersForMatchup } from '../../shared/matchmaking.js';
 import { makeRng, randomInt, roundSeed, type Rng } from '../../shared/rng.js';
 import { resolveMatchup, type MatchupAnswer, type ScoreEvent } from '../../shared/scoring.js';
@@ -33,8 +33,9 @@ export function voteMs(state: RoomState): number {
   return TIMER_PRESETS[state.settings.timerSpeed].voteMs;
 }
 
+/** The whole drawing phase — every artist draws inside this one window, together. */
 export function drawMs(state: RoomState): number {
-  return Math.round(answerMs(state) * DRAWING_TIME_MULTIPLIER);
+  return DRAWING_ACTIVE_MS[state.settings.timerSpeed];
 }
 
 /** Deterministic per-room, per-round randomness so every draw is reproducible. */

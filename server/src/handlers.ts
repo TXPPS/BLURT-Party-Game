@@ -20,7 +20,7 @@ import {
 import type { ClientMessage, ErrorCode } from '../../shared/protocol.js';
 import { disambiguateName, sanitizeText } from '../../shared/sanitize.js';
 import type { GameSettings, Phase } from '../../shared/types.js';
-import { currentDrawingRecord, recordDrawingVote, recordGuess } from './finale.js';
+import { currentDrawingRecord, drawingForArtist, recordDrawingVote, recordGuess } from './finale.js';
 import type { PhaseExitReason } from './pacingLog.js';
 import { hasSubmitted, recordVote, resetForNewMatch, startMatch, submitAnswer } from './match.js';
 import { assignHost, findPlayer, isEligible, startBlock } from './roomState.js';
@@ -250,13 +250,15 @@ function vote(ctx: HandlerContext, roundId: string, answerId: string): void {
  * ------------------------------------------------------------------ */
 
 function drawing(ctx: HandlerContext, roundId: string, dataUrl: string): void {
-  const record = currentDrawingRecord(ctx.state);
-  if (record === undefined || record.roundId !== roundId) {
-    ctx.fail('WRONG_PHASE', 'That drawing round is over.');
+  // Everybody draws at once, so the submission is matched to *this* player's own
+  // drawing rather than to whichever one the showcase pointer happens to be on.
+  const record = drawingForArtist(ctx.state, ctx.player.id);
+  if (record === undefined) {
+    ctx.fail('NOT_YOUR_TURN', 'You are not drawing this round.');
     return;
   }
-  if (record.artistId !== ctx.player.id) {
-    ctx.fail('NOT_YOUR_TURN', 'Somebody else is drawing.');
+  if (record.roundId !== roundId) {
+    ctx.fail('WRONG_PHASE', 'That drawing round is over.');
     return;
   }
   record.hasImage = true;

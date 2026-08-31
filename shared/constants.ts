@@ -130,8 +130,21 @@ export const TIMER_PRESETS: Readonly<
   relaxed: { label: 'RELAXED', answerMs: 120_000, voteMs: 45_000 },
 } as const;
 
-/** Drawing gets this multiple of the answer timer — drawing badly still takes longer. */
-export const DRAWING_TIME_MULTIPLIER = 2.5;
+/**
+ * How long the drawing phase runs. Every artist draws at once, so this is the whole
+ * phase, not per artist.
+ *
+ * Standalone rather than a multiple of the answer timer, which is what it used to be.
+ * Answering is a sentence and drawing is a picture: they are different jobs and there
+ * is no reason a room that wants longer to type also wants proportionally longer to
+ * draw. Deriving it also made the finale scale badly — at RELAXED the old 2.5×
+ * rule bought each artist five minutes.
+ */
+export const DRAWING_ACTIVE_MS: Readonly<Record<TimerSpeed, number>> = {
+  fast: 60_000,
+  normal: 90_000,
+  relaxed: 120_000,
+} as const;
 
 /** The story catches everyone up this often (and always after the last standard round). */
 export const STORY_UPDATE_EVERY_N_ROUNDS = 2;

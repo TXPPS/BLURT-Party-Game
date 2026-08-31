@@ -14,6 +14,7 @@ import {
   findPlayer,
   roomExpiresAt,
 } from './roomState.js';
+import { drawingForArtist } from './finale.js';
 import { storyById } from './story.js';
 import type { DrawingRecord, MatchupRecord, RoomState, ServerPlayer } from './types.js';
 
@@ -131,7 +132,9 @@ export function roleFor(state: RoomState, player: ServerPlayer): PlayerRole {
       return matchup?.voterIds.includes(player.id) === true ? 'VOTER' : 'SPECTATOR_OF_ROUND';
     case 'DRAWING_SETUP':
     case 'DRAWING_ACTIVE':
-      return drawing?.artistId === player.id ? 'ARTIST' : 'SPECTATOR_OF_ROUND';
+      // Every artist draws at once, so this is "am I *an* artist", not "am I the
+      // one whose turn it is" — the showcase pointer means nothing yet.
+      return drawingForArtist(state, player.id) !== undefined ? 'ARTIST' : 'SPECTATOR_OF_ROUND';
     case 'DRAWING_GUESS':
       return drawing?.artistId === player.id ? 'ARTIST' : 'GUESSER';
     case 'DRAWING_VOTE':

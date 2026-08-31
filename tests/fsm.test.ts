@@ -89,8 +89,15 @@ describe('the phase machine', () => {
     expect(isLegalTransition('FINAL_STORY', 'FINAL_RESULTS')).toBe(true);
   });
 
-  it('accepts running several drawings back to back', () => {
-    expect(isLegalTransition('DRAWING_RESULTS', 'DRAWING_SETUP')).toBe(true);
+  it('showcases drawings back to back without re-entering setup or drawing', () => {
+    // Everybody draws at once, so SETUP and ACTIVE happen once. The showcase then
+    // loops GUESS → VOTE → RESULTS → GUESS for each picture in turn.
+    expect(isLegalTransition('DRAWING_RESULTS', 'DRAWING_GUESS')).toBe(true);
+
+    // Going back to either would mean a second drawing window, which is the pacing
+    // bug this structure exists to prevent.
+    expect(isLegalTransition('DRAWING_RESULTS', 'DRAWING_SETUP')).toBe(false);
+    expect(isLegalTransition('DRAWING_RESULTS', 'DRAWING_ACTIVE')).toBe(false);
   });
 
   it('accepts PLAY AGAIN straight from the results screen', () => {

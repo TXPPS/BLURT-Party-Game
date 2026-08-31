@@ -274,17 +274,32 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
         <div className="stack center">
           <div className="row row--between">
             <p className="eyebrow">
-              Drawing {view.drawingIndex} of {view.drawingTotal}
+              {view.phase === 'DRAWING_ACTIVE'
+                ? `${view.submittedCount} of ${view.artistTotal} handed in`
+                : `${view.artistTotal} drawing at once`}
             </p>
             {timer}
           </div>
 
-          {/* The artist's own device already says "draw this" in large type; telling
-              them who is drawing is noise on the one screen that knows. */}
+          {/* An artist's own device is showing them a canvas; the shared screen is
+              the one place the rest of the room can watch the count move. */}
           {state.you.role !== 'ARTIST' && (
             <>
-              <PhaseTitle title={`${view.artistName} is drawing`} sub="Nobody else knows what." />
-              <Waiting message={view.phase === 'DRAWING_ACTIVE' && view.submitted ? 'Finished' : 'Scribbling'} />
+              <PhaseTitle
+                title={
+                  view.phase === 'DRAWING_ACTIVE' && view.pendingArtistNames.length > 0
+                    ? `${view.pendingArtistNames.join(', ')} still drawing`
+                    : 'They are drawing'
+                }
+                sub="Nobody else knows what."
+              />
+              <Waiting
+                message={
+                  view.phase === 'DRAWING_ACTIVE' && view.submittedCount >= view.artistTotal
+                    ? 'Everybody is done'
+                    : 'Scribbling'
+                }
+              />
             </>
           )}
         </div>

@@ -197,26 +197,38 @@ export interface FinalStoryView {
   deadline: Deadline;
 }
 
+/**
+ * The one-time card that opens the finale.
+ *
+ * There is no single artist any more — everybody selected draws at once — so this
+ * announces the whole set rather than one person's turn.
+ */
 export interface DrawingSetupView {
   phase: 'DRAWING_SETUP';
-  roundId: string;
-  artistId: string;
-  artistName: string;
-  drawingIndex: number;
-  drawingTotal: number;
+  /** Names of everybody who has been picked to draw, in showcase order. */
+  artistNames: string[];
+  artistTotal: number;
   deadline: Deadline;
 }
 
 export interface DrawingActiveView {
   phase: 'DRAWING_ACTIVE';
-  roundId: string;
-  artistId: string;
-  artistName: string;
-  drawingIndex: number;
-  drawingTotal: number;
-  submitted: boolean;
+  /** Names of everybody drawing right now. */
+  artistNames: string[];
+  artistTotal: number;
+  /**
+   * How many drawings are in. Drives the "3 of 4 have submitted" counter, which is
+   * the whole reason a non-artist has anything to look at during this phase.
+   */
+  submittedCount: number;
+  /** Names of the artists still working, so the wait has faces on it. */
+  pendingArtistNames: string[];
   deadline: Deadline;
 }
+
+// NOTE: whether *this* device has submitted is not here on purpose. It is per-player,
+// so it travels in the private payload (`drawingPrompt.submitted`) rather than in a
+// view every device receives identically.
 
 export interface DrawingGuessView {
   phase: 'DRAWING_GUESS';

@@ -229,3 +229,58 @@ export function GuessForm({
     </div>
   );
 }
+
+/** "Ana, Bo and Cal are drawing" — an Oxford-comma-free join that reads out loud. */
+export function listNames(names: readonly string[], suffix: string): string {
+  if (names.length === 0) return `Nobody ${suffix}`;
+  if (names.length === 1) return `${names[0] ?? ''} ${suffix}`;
+  const head = names.slice(0, -1).join(', ');
+  return `${head} and ${names.at(-1) ?? ''} ${suffix}`;
+}
+
+/**
+ * What a non-artist looks at while everybody else draws.
+ *
+ * This phase used to be the worst dead air in the game: one artist drew, everybody
+ * else got a static "X is drawing" card for up to three minutes, three times over.
+ * Drawing is simultaneous now, so the wait is a third of the length — and this screen
+ * gives it a pulse by naming who is still working and counting submissions as they
+ * land. The counter is driven by the broadcast, so it moves on its own.
+ */
+export function DrawingHold({
+  view,
+  timer,
+}: {
+  view: Extract<StateMessage['view'], { phase: 'DRAWING_ACTIVE' }>;
+  timer: React.ReactNode;
+}): React.JSX.Element {
+  const { submittedCount, artistTotal, pendingArtistNames } = view;
+  const done = artistTotal > 0 && submittedCount >= artistTotal;
+
+  return (
+    <div className="stack center">
+      <div className="row row--between">
+        <PhaseTitle eyebrow="Pens down soon" title="They are drawing" />
+        {timer}
+      </div>
+
+      <Card sunken>
+        <p className="tally" aria-live="polite">
+          <span className="tally__value">{submittedCount}</span>
+          <span className="tally__of"> of {artistTotal}</span>
+        </p>
+        <p className="center muted">
+          {done ? 'Everybody is done. Here we go.' : 'have handed their drawing in'}
+        </p>
+      </Card>
+
+      {!done && pendingArtistNames.length > 0 && (
+        <p className="center faint">{listNames(pendingArtistNames, 'still scribbling')}</p>
+      )}
+
+      <p className="lead center">
+        You will be asked to guess what each one was meant to be. Prepare to be wrong.
+      </p>
+    </div>
+  );
+}

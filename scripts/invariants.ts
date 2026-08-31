@@ -55,6 +55,27 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
     return failures;
   }
 
+  // 0. Drawing happens once, for everybody at the same time.
+  //
+  //    This is the structural guarantee behind the finale's pacing. Sequentially,
+  //    three artists meant three DRAWING_ACTIVE windows and everybody who was not
+  //    drawing watched a progress bar for all three. If this ever counts more than
+  //    one, the finale has quietly gone back to costing an artist-multiple of the
+  //    drawing timer. The showcase phases are deliberately *not* checked: those are
+  //    supposed to repeat, once per picture.
+  //
+  //    Counted per bot from its own observed phase sequence, and only for bots that
+  //    saw the finale at all — a bot that dropped before it never observes either.
+  for (const bot of bots) {
+    if (!bot.phases.includes('DRAWING_GUESS')) continue;
+    for (const phase of ['DRAWING_SETUP', 'DRAWING_ACTIVE'] as const) {
+      const seen = bot.phases.filter((p) => p === phase).length;
+      if (seen > 1) {
+        fail('drawing is simultaneous', `${bot.options.name}: entered ${phase} ${seen} times`);
+      }
+    }
+  }
+
   // 1. Legal transitions only — but against a short *path*, not a single edge.
   //
   //    A phase that is already satisfied when it is entered falls straight through
