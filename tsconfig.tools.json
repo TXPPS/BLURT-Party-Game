@@ -17,6 +17,8 @@
     "server/src/ids.ts",
     "server/src/match.ts",
     "server/src/pacingLog.ts",
+    "server/src/finale.ts",
+    "server/src/qa.ts",
     "server/src/roomState.ts",
     "server/src/roomUpkeep.ts",
     "server/src/story.ts",

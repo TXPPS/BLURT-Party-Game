@@ -325,7 +325,7 @@ submitting at once produce one broadcast, not ten.
 
 Three layers, and the interesting one is the middle.
 
-**Unit tests** (`pnpm test`) — 267 specs over the pure modules: room-code generation
+**Unit tests** (`pnpm test`) — 281 specs over the pure modules: room-code generation
 and uniqueness, name generation and the adversarial blocklist filter, matchmaking
 fairness over 100-round runs at every player count, scoring maths, tie handling, story
 assembly and progressive unlock, content schema validation, the two disguise lints,

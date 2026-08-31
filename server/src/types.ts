@@ -41,6 +41,14 @@ export interface ServerPlayer {
   kicked: boolean;
   /** True once the grace window lapsed — stays on the scoreboard as DISCONNECTED. */
   departed: boolean;
+  /**
+   * A QA stand-in, added through the gated QA routes rather than by joining.
+   *
+   * Bots have no socket. They are auto-played server-side through the same submission
+   * functions a real player goes through, so a QA room still exercises the real
+   * scoring and matchmaking rather than a parallel implementation.
+   */
+  isBot: boolean;
 }
 
 export interface AnswerRecord {

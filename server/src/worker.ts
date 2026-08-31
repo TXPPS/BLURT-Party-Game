@@ -18,12 +18,21 @@ import { NEW_ROOM_SENTINEL } from '../../shared/protocol.js';
 import { cryptoCodeSource, isValidRoomCode, pickWordCode, randomLetterCode } from '../../shared/roomCode.js';
 import { normalizeRoomCode } from '../../shared/sanitize.js';
 import { RoomDO } from './RoomDO.js';
+import { tokenMatches } from './qa.js';
 
 export { RoomDO };
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
   ASSETS?: Fetcher;
+  /**
+   * Secret that unlocks the manual-QA routes. A Worker *secret*, never a var, so it
+   * is not in wrangler.toml and not in the client bundle.
+   *
+   * Optional on purpose: unset means the QA routes 404 and the feature does not
+   * exist, which is the default and the state of any deploy where nobody turned it on.
+   */
+  QA_TOKEN?: string;
 }
 
 interface ProbeResult {
@@ -120,6 +129,25 @@ export default {
       if (!isValidRoomCode(code)) return new Response('invalid room code', { status: 400 });
       const forward = new URL('https://room/drawing');
       forward.searchParams.set('index', drawingLookup[2] ?? '0');
+      return stubFor(env, code).fetch(forward);
+    }
+
+    // Manual-QA routes. Absent unless QA_TOKEN is set, and refused without it — see
+    // server/src/qa.ts for why this fails closed rather than open.
+    const qaRoute = /^\/api\/qa\/([A-Za-z]{4})$/.exec(url.pathname);
+    if (qaRoute !== null) {
+      if (env.QA_TOKEN === undefined || env.QA_TOKEN === '') {
+        return new Response('not found', { status: 404 });
+      }
+      if (request.method !== 'POST') return new Response('method not allowed', { status: 405 });
+      const given = request.headers.get('X-QA-Token');
+      if (!tokenMatches(env.QA_TOKEN, given)) {
+        return json({ error: 'bad QA token' }, 403);
+      }
+      const code = normalizeRoomCode(qaRoute[1] ?? '');
+      if (!isValidRoomCode(code)) return json({ error: 'invalid room code' }, 400);
+      const forward = new URL('https://room/qa');
+      for (const [key, value] of url.searchParams) forward.searchParams.set(key, value);
       return stubFor(env, code).fetch(forward);
     }
 

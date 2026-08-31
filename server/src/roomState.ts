@@ -70,6 +70,7 @@ export function createPlayer(now: number, isHost: boolean): ServerPlayer {
     adultAcknowledged: false,
     kicked: false,
     departed: false,
+    isBot: false,
   };
 }
 

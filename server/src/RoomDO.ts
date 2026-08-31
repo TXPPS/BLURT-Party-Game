@@ -11,6 +11,7 @@
  */
 
 import {
+  MAX_PLAYERS,
   BROADCAST_COALESCE_MS,
   HANDSHAKE_TIMEOUT_MS,
   MAX_CONNECTIONS_PER_ROOM,
@@ -31,6 +32,7 @@ import {
   logPhaseExit,
   type PhaseExitReason,
 } from './pacingLog.js';
+import { addBots, autoplayBots, QA_PHASES, removeBots } from './qa.js';
 import { migrateHost, sweepGrace, type UpkeepPorts } from './roomUpkeep.js';
 import {
   conflictResponse,
@@ -64,6 +66,15 @@ interface SocketMeta {
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
+  /**
+   * Secret that unlocks the manual-QA routes. A Worker *secret*, never a var, so it
+   * is not in the config file and not in the client bundle.
+   *
+   * Optional on purpose: when it is unset every QA route 404s and the feature does
+   * not exist. That is the default, and the state of any deploy where nobody has
+   * deliberately turned this on.
+   */
+  QA_TOKEN?: string;
 }
 
 export class RoomDO implements DurableObject {
@@ -126,11 +137,64 @@ export class RoomDO implements DurableObject {
         );
       }
 
+      case '/qa':
+        return this.qa(url, now);
+
       case '/ws':
         return this.openSocket(request, url, now);
 
       default:
         return notFoundResponse();
+    }
+  }
+
+  /**
+   * The manual-QA surface. Only ever reached when the Worker has already checked the
+   * secret — the DO is not publicly addressable, so this is the second gate, not the
+   * first.
+   */
+  private async qa(url: URL, now: number): Promise<Response> {
+    const room = this.liveRoom();
+    if (room === null) return notFoundResponse();
+    const action = url.searchParams.get('action') ?? '';
+
+    switch (action) {
+      case 'bots': {
+        const count = Number(url.searchParams.get('count') ?? '3');
+        const added = addBots(room, Number.isFinite(count) ? count : 3, now, MAX_PLAYERS);
+        this.settlePhase(now);
+        this.markDirty();
+        await this.flush();
+        return Response.json({ ok: true, added, players: room.players.length });
+      }
+
+      case 'clear-bots': {
+        const removed = removeBots(room);
+        this.settlePhase(now);
+        this.markDirty();
+        await this.flush();
+        return Response.json({ ok: true, removed });
+      }
+
+      case 'phase': {
+        const target = url.searchParams.get('to') ?? '';
+        if (!(QA_PHASES as readonly string[]).includes(target)) {
+          return Response.json({ ok: false, error: 'unknown phase' }, { status: 400 });
+        }
+        // Deliberately bypasses the legal-transition table: jumping is the entire
+        // point, and refusing an "illegal" jump would make the tool useless for
+        // reaching exactly the screens that are hard to reach.
+        room.phase = target as Phase;
+        room.readyToAdvance = [];
+        clearTimer(room, 'phase');
+        this.runTransitions(now, 'host', () => undefined);
+        this.markDirty();
+        await this.flush();
+        return Response.json({ ok: true, phase: room.phase });
+      }
+
+      default:
+        return Response.json({ ok: false, error: 'unknown action' }, { status: 400 });
     }
   }
 
@@ -346,6 +410,9 @@ export class RoomDO implements DurableObject {
       room.readyToAdvance = [];
       clearTimer(room, 'phase');
       PHASE_HANDLERS[target].onEnter(control);
+      // QA stand-ins take their turn the moment the phase opens, so a room being
+      // tested by one person advances on that person rather than on a deadline.
+      autoplayBots(room, now);
       this.phaseEnteredAt = now;
       logPhaseEnter(room, target, now);
       if (target === 'FINAL_RESULTS') logMatchEnd(room, now);

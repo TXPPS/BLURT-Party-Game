@@ -104,6 +104,70 @@ npx wrangler tail --config server/wrangler.toml --format pretty --status error
 
 ---
 
+## Manual QA mode
+
+Testing this game by hand is otherwise miserable: you need four devices, and anything
+past the first round costs ten minutes of real play to reach. QA mode lets one person
+fill a room with stand-ins and jump straight to the screen they want to look at.
+
+**It does not exist until you turn it on.** The routes are gated on a Worker *secret*,
+`QA_TOKEN`. When it is unset — the default, and the state of any deploy where nobody
+deliberately enabled this — every QA route returns 404, exactly as if the feature were
+not compiled in. That is deliberate: the alternative is a public endpoint that lets a
+stranger reset somebody's game.
+
+```bash
+# Turn it on (prompts for the value; never commit it)
+npx wrangler secret put QA_TOKEN --config server/wrangler.toml
+
+# Turn it off again
+npx wrangler secret delete QA_TOKEN --config server/wrangler.toml
+```
+
+Locally, put it in `server/.dev.vars` instead — that file is gitignored:
+
+```
+QA_TOKEN=whatever-you-like
+```
+
+### Using it
+
+```bash
+export BLURT_URL=https://blurt.<subdomain>.workers.dev
+export BLURT_ROOM=ABCD          # the code on screen
+export BLURT_QA_TOKEN=...       # same value as the secret
+
+pnpm qa bots 5                  # fill the room with stand-in players
+pnpm qa phase DRAWING_GUESS     # jump straight to a screen
+pnpm qa clear                   # remove the stand-ins
+```
+
+The token comes from the environment rather than a flag so it stays out of your shell
+history.
+
+### What the stand-ins are
+
+Not real clients — players in the room state flagged `isBot`, with no socket. The
+server plays their turn on phase entry **through the same submission functions a real
+player goes through**, so a QA room exercises the real scoring, the real matchmaking
+and the real phase machine rather than a parallel implementation of them. They answer,
+vote, write decoys and vote on drawings; they never draw, so their picture is the blank
+one, which the finale already handles.
+
+They are named `QA Doris`, `QA Nigel` and so on — obviously fake, so nobody looking at
+the roster mistakes one for a real player.
+
+### Jumping phases
+
+`pnpm qa phase <PHASE>` sets the room's phase directly and **deliberately bypasses the
+legal-transition table**. Jumping is the entire point; refusing an "illegal" jump would
+make the tool useless for reaching exactly the screens that are hard to reach. It does
+mean you can put a room into a state a real match would never produce — that is a
+feature for testing a screen and a trap if you then try to reason about the state
+machine from it.
+
+---
+
 ## What the smoke check proves
 
 A green tick on **deploy** alone would only mean "the upload finished". The separate
