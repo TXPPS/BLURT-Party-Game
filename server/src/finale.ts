@@ -52,15 +52,27 @@ export function planFinale(state: RoomState, now: number): boolean {
   // recorded, which is the order the showcase presents them in.
   const artists = [...eligible].sort((a, b) => a.score - b.score || a.id.localeCompare(b.id));
 
+  // Nobody draws their own answer. Drawing a phrase you wrote yourself is the one
+  // assignment with no surprise in it — you already know what it is meant to look
+  // like, and the guessers are competing against your own mental image. Greedy is
+  // enough here: take the best prompt you are allowed, and only fall back to one of
+  // your own if every remaining prompt is yours.
+  const pool = [...derived];
+  const assigned = artists.map((artist) => {
+    const preferred = pool.findIndex((prompt) => prompt.authorId !== artist.id);
+    const index = preferred === -1 ? 0 : preferred;
+    return pool.length === 0 ? undefined : pool.splice(index, 1)[0];
+  });
+
   match.drawings = artists.map((artist, index) => {
-    const prompt = derived[index];
-    const spare = spares[(index - derived.length) % spares.length];
+    const prompt = assigned[index];
+    const spare = spares[index % spares.length];
     return {
       index,
       roundId: shortId('d', nextSeq(state)),
       artistId: artist.id,
       subject: prompt?.subject ?? spare ?? 'something indescribable',
-      context: prompt?.context ?? (prompt === undefined ? GENERIC_PROMPT_CONTEXT : ''),
+      context: prompt === undefined ? GENERIC_PROMPT_CONTEXT : prompt.context,
       storyId: prompt?.storyId ?? '',
       slotId: prompt?.slotId ?? '',
       hasImage: false,

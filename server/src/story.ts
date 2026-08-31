@@ -120,18 +120,25 @@ export function rememberStories(state: RoomState, storyIds: readonly string[]): 
  * ------------------------------------------------------------------ */
 
 /**
- * Every drawable subject this match produced, visual ones first.
+ * Every drawable subject in the story the room just finished, visual ones first.
  *
- * Falls through to non-visual slots when a short match did not yield enough — an
- * unillustratable prompt is funnier than a finale that cannot start.
+ * Not just the slots a round was spent on. A three-round match plays three slots but
+ * the finished story has ten, and the room reads all ten in the final story — the
+ * unplayed ones filled from each slot's own pool. Deriving from the whole story is
+ * what keeps a ten-player finale about *this* story instead of falling back to
+ * generic prompts for most of the room.
+ *
+ * Falls through to non-visual slots when a story does not yield enough visual ones —
+ * an unillustratable prompt is funnier than a finale that cannot start.
  */
 export function availableDrawingPrompts(match: MatchState): DerivedDrawingPrompt[] {
   const prompts: DerivedDrawingPrompt[] = [];
   for (const story of matchStories(match)) {
-    const played = match.plan
-      .filter((a) => a.storyId === story.id && match.fills[fillKey(a.storyId, a.slotId)] !== undefined)
-      .map((a) => a.slotId);
-    prompts.push(...deriveDrawingPrompts(story, fillsForStory(match, story.id), played));
+    prompts.push(...deriveDrawingPrompts(story, fillsForStory(match, story.id)));
   }
-  return prompts.sort((a, b) => Number(b.visual) - Number(a.visual));
+  // Re-sorted across stories, since a long match spans more than one and each was
+  // only sorted within itself.
+  return prompts.sort(
+    (a, b) => Number(b.visual) - Number(a.visual) || Number(b.playerWritten) - Number(a.playerWritten),
+  );
 }

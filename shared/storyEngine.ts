@@ -234,11 +234,20 @@ export function storiesNeeded(stories: readonly Story[], rounds: number): number
 export interface DerivedDrawingPrompt {
   storyId: string;
   slotId: string;
-  /** The player's own words — what they will actually be asked to draw. */
+  /** What they will actually be asked to draw. */
   subject: string;
   /** The clause it landed in, shown underneath as context. */
   context: string;
   visual: boolean;
+  /**
+   * Who wrote the subject, or null when the house did.
+   *
+   * Carried so the finale can avoid handing somebody their own answer to draw —
+   * drawing a phrase you wrote yourself is the one assignment with no surprise in it.
+   */
+  authorId: string | null;
+  /** False when the value came from the slot's authored `fallback` pool. */
+  playerWritten: boolean;
 }
 
 /**
@@ -250,33 +259,45 @@ export interface DerivedDrawingPrompt {
 export function deriveDrawingPrompts(
   story: Story,
   fills: SlotFills,
-  playedSlotIds: readonly string[],
 ): DerivedDrawingPrompt[] {
-  const played = new Set(playedSlotIds);
   const prompts: DerivedDrawingPrompt[] = [];
+  const seen = new Set<string>();
 
   for (const section of story.sections) {
     for (const line of section.lines) {
       for (const match of line.text.matchAll(PLACEHOLDER_PATTERN)) {
         const slotId = match[1] as string;
-        if (!played.has(slotId)) continue;
-        const fill = fills.get(slotId);
+        if (seen.has(slotId)) continue;          // a slot referenced twice is one prompt
         const slot = story.slots.find((s) => s.id === slotId);
-        if (fill === undefined || slot === undefined) continue;
+        if (slot === undefined) continue;
+        seen.add(slotId);
+
+        // Every slot in the finished story is drawable, not just the ones a round was
+        // spent on. An unplayed slot still has a value — `renderSegments` fills it from
+        // the slot's own pool and the room reads it in the final story — so deriving
+        // the same value here keeps the finale about the story the room just watched.
+        const fill = fills.get(slotId);
+        const subject = fill?.text ?? houseFallbackFor(story, slot);
 
         prompts.push({
           storyId: story.id,
           slotId,
-          subject: fill.text,
-          context: clauseAround(line.text, match.index ?? 0, match[0].length, fill.text),
+          subject,
+          context: clauseAround(line.text, match.index ?? 0, match[0].length, subject),
           visual: VISUAL_SEMANTIC_TYPES.has(slot.semanticType),
+          authorId: fill?.authorId ?? null,
+          playerWritten: fill !== undefined && fill.authorId !== null,
         });
       }
     }
   }
 
-  // Visual first, otherwise stable narrative order.
-  return prompts.sort((a, b) => Number(b.visual) - Number(a.visual));
+  // Visual first, then a player's own words ahead of authored filler — somebody's
+  // real answer is funnier to draw than a line the house wrote. Ties keep narrative
+  // order, so a short match still draws from the start of the story.
+  return prompts.sort(
+    (a, b) => Number(b.visual) - Number(a.visual) || Number(b.playerWritten) - Number(a.playerWritten),
+  );
 }
 
 /** The sentence fragment surrounding an insertion, trimmed to something readable. */

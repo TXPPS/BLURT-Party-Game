@@ -11,7 +11,7 @@ import {
   type SlotFill,
 } from '../shared/storyEngine.js';
 import { content, storiesForMode } from '../content/index.js';
-import { PLACEHOLDER_PATTERN, type Story } from '../content/schema.js';
+import { PLACEHOLDER_PATTERN, VISUAL_SEMANTIC_TYPES, type Story } from '../content/schema.js';
 
 const { bundle } = content();
 const allStories = [...bundle.classic, ...bundle.crude];
@@ -199,16 +199,29 @@ describe('planSlots', () => {
 });
 
 describe('deriveDrawingPrompts', () => {
-  it('only offers slots that were actually played', () => {
-    const played = story.slots.slice(0, 4).map((s) => s.id);
-    const prompts = deriveDrawingPrompts(story, fillAll(story), played);
-    expect(prompts).toHaveLength(4);
-    for (const prompt of prompts) expect(played).toContain(prompt.slotId);
+  it('offers every slot in the story, not just the ones a round was spent on', () => {
+    // A three-round match plays three slots; the finished story still has ten, and
+    // the room reads all ten. All ten are drawable.
+    const played = story.slots.slice(0, 3).map((s) => s.id);
+    const partial = new Map([...fillAll(story)].filter(([id]) => played.includes(id)));
+    const prompts = deriveDrawingPrompts(story, partial);
+
+    expect(prompts).toHaveLength(story.slots.length);
+    expect(new Set(prompts.map((p) => p.slotId)).size).toBe(story.slots.length);
+  });
+
+  it('fills an unplayed slot from its own pool rather than skipping it', () => {
+    const prompts = deriveDrawingPrompts(story, new Map());
+    expect(prompts).toHaveLength(story.slots.length);
+    for (const prompt of prompts) {
+      expect(prompt.subject.length).toBeGreaterThan(0);
+      expect(prompt.playerWritten).toBe(false);
+      expect(prompt.authorId).toBeNull();
+    }
   });
 
   it('puts visual subjects first but still offers the rest', () => {
-    const played = story.slots.map((s) => s.id);
-    const prompts = deriveDrawingPrompts(story, fillAll(story), played);
+    const prompts = deriveDrawingPrompts(story, fillAll(story));
     const firstNonVisual = prompts.findIndex((p) => !p.visual);
     if (firstNonVisual !== -1) {
       expect(prompts.slice(firstNonVisual).every((p) => !p.visual)).toBe(true);
@@ -216,16 +229,38 @@ describe('deriveDrawingPrompts', () => {
     expect(prompts.filter((p) => p.visual).length).toBeGreaterThan(0);
   });
 
+  it("prefers a player's own words over authored filler, within a visual tier", () => {
+    // Only the last visual slot was actually won by somebody.
+    const visual = story.slots.filter((s) => VISUAL_SEMANTIC_TYPES.has(s.semanticType));
+    const target = visual.at(-1);
+    if (target === undefined) return;
+    const fills = new Map([
+      [target.id, {
+        text: 'a player wrote this',
+        authorId: 'p1',
+        authorName: 'Somebody',
+        authorAvatarId: null,
+        roundIndex: 0,
+      }],
+    ]);
+
+    const prompts = deriveDrawingPrompts(story, fills);
+    const firstVisual = prompts.find((p) => p.visual);
+    expect(firstVisual?.slotId).toBe(target.id);
+    expect(firstVisual?.playerWritten).toBe(true);
+  });
+
   it('gives each prompt the clause it landed in, with no placeholders left', () => {
-    const played = story.slots.map((s) => s.id);
-    for (const prompt of deriveDrawingPrompts(story, fillAll(story), played)) {
+    for (const prompt of deriveDrawingPrompts(story, fillAll(story))) {
       expect(prompt.context).toContain(prompt.subject);
       expect(prompt.context).not.toMatch(PLACEHOLDER_PATTERN);
       expect(prompt.context.length).toBeGreaterThan(prompt.subject.length - 1);
     }
   });
 
-  it('returns nothing when nothing was played', () => {
-    expect(deriveDrawingPrompts(story, new Map(), [])).toEqual([]);
+  it('lists a slot once even when the story mentions it twice', () => {
+    const prompts = deriveDrawingPrompts(story, fillAll(story));
+    expect(new Set(prompts.map((p) => p.slotId)).size).toBe(prompts.length);
   });
 });
+
