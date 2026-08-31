@@ -278,6 +278,14 @@ export interface DrawingResultsView {
   leaderboard: LeaderboardRow[];
   drawingIndex: number;
   drawingTotal: number;
+  /**
+   * How many artists drew but will never be shown, on the last showcase screen only.
+   *
+   * The room needs telling *why* four pictures were shown when eight people drew, and
+   * that the other four were paid anyway — otherwise being left out reads as a bug or
+   * a snub. Zero on every screen but the last.
+   */
+  unshownArtistCount: number;
   deadline: Deadline;
 }
 

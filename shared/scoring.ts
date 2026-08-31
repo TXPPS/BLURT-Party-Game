@@ -53,6 +53,24 @@ export const ARTIST_PER_CORRECT = 70;
 /** Paid to the artist when *everybody* identified the real prompt. */
 export const ARTIST_PERFECT_BONUS = 140;
 
+/**
+ * The one knob that moves the finale's share of a match.
+ *
+ * The four payouts above are the values the design fixed, and they stay readable as
+ * those values. Everybody drawing (rather than three people) put more artists in a
+ * position to earn, which pushed the finale's share of total points up; scaling every
+ * finale payout by one number brings it back without quietly rewriting the individual
+ * figures and losing the reasoning behind each.
+ *
+ * Tuned against `tests/scoring.balance.test.ts`, which holds the share to 22–38%.
+ */
+export const FINALE_MULTIPLIER = 0.8;
+
+/** Every finale payout goes through here, so the multiplier cannot be half-applied. */
+export function finalePoints(base: number): number {
+  return Math.round(base * FINALE_MULTIPLIER);
+}
+
 /* ------------------------------------------------------------------ *
  * Score events
  * ------------------------------------------------------------------ */
@@ -65,7 +83,8 @@ export type ScoreReason =
   | 'guesser_correct'
   | 'decoy_fooled'
   | 'artist_identified'
-  | 'artist_perfect';
+  | 'artist_perfect'
+  | 'artist_unshown';
 
 export interface ScoreEvent {
   playerId: string;
@@ -83,7 +102,32 @@ export const SCORE_REASON_LABELS: Readonly<Record<ScoreReason, string>> = {
   decoy_fooled: 'Fooled somebody',
   artist_identified: 'Recognisable, somehow',
   artist_perfect: 'Everyone got it',
+  artist_unshown: 'Gallery scale',
 };
+
+/**
+ * What an artist earns when their drawing never made it to the showcase.
+ *
+ * Everybody draws, but only `DRAWING_SHOWCASE_MAX` drawings can be shown without the
+ * finale costing a guess/vote/results cycle per player. That leaves artists who did
+ * the work and had no chance to earn from it, which would be a straightforward
+ * injustice — so they are paid the *median* of what the showcased artists actually
+ * made on the night.
+ *
+ * Median rather than mean on purpose: one artist that everybody recognised should not
+ * inflate what the unshown are owed, and one nobody got should not deflate it. Paying
+ * the median means being left out is never better *or* worse than average luck.
+ */
+export function unshownArtistComp(showcasedArtistEarnings: readonly number[]): number {
+  if (showcasedArtistEarnings.length === 0) return 0;
+  const sorted = [...showcasedArtistEarnings].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median =
+    sorted.length % 2 === 1
+      ? (sorted[mid] ?? 0)
+      : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+  return Math.round(median);
+}
 
 export function totalPoints(events: readonly ScoreEvent[]): number {
   return events.reduce((sum, event) => sum + event.points, 0);
@@ -253,13 +297,17 @@ export function resolveDrawing(
 
     if (option.isReal) {
       correctVoterIds.push(voterId);
-      events.push({ playerId: voterId, points: GUESSER_CORRECT, reason: 'guesser_correct' });
-      events.push({ playerId: artistId, points: ARTIST_PER_CORRECT, reason: 'artist_identified' });
+      events.push({ playerId: voterId, points: finalePoints(GUESSER_CORRECT), reason: 'guesser_correct' });
+      events.push({
+        playerId: artistId,
+        points: finalePoints(ARTIST_PER_CORRECT),
+        reason: 'artist_identified',
+      });
     } else if (option.authorId !== null) {
       fooledCounts[option.authorId] = (fooledCounts[option.authorId] ?? 0) + 1;
       events.push({
         playerId: option.authorId,
-        points: DECOY_FOOLED_SOMEONE,
+        points: finalePoints(DECOY_FOOLED_SOMEONE),
         reason: 'decoy_fooled',
       });
     }
@@ -267,7 +315,11 @@ export function resolveDrawing(
 
   const perfect = eligibleVoterCount > 0 && correctVoterIds.length === eligibleVoterCount;
   if (perfect) {
-    events.push({ playerId: artistId, points: ARTIST_PERFECT_BONUS, reason: 'artist_perfect' });
+    events.push({
+      playerId: artistId,
+      points: finalePoints(ARTIST_PERFECT_BONUS),
+      reason: 'artist_perfect',
+    });
   }
 
   return { voteCounts, correctVoterIds, fooledCounts, perfect, events };

@@ -362,6 +362,18 @@ export function GroupView(props: GroupViewProps): React.JSX.Element {
               </div>
             ))}
           </div>
+          {view.unshownArtistCount > 0 && (
+            <Card sunken>
+              <p className="center">
+                <strong>
+                  {view.unshownArtistCount} more {view.unshownArtistCount === 1 ? 'drawing' : 'drawings'} we
+                  could not get to.
+                </strong>{' '}
+                No time to show them all — the gallery paid you scale. Every picture is in
+                the results.
+              </p>
+            </Card>
+          )}
           <Scoreboard rows={view.leaderboard} />
           <div className="row row--center">{advance}</div>
         </div>

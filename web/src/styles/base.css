@@ -393,6 +393,42 @@ ul {
 }
 
 /* ------------------------------------------------------------------ *
+ * End-of-match gallery — every drawing, including the ones the finale
+ * had no time to show.
+ * ------------------------------------------------------------------ */
+
+.gallery {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.gallery__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.gallery__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: var(--lh-snug);
+  min-width: 0;
+}
+
+.gallery__subject {
+  font-style: italic;
+  color: var(--c-ink-faint);
+}
+
+/* ------------------------------------------------------------------ *
  * Type helpers
  * ------------------------------------------------------------------ */
 

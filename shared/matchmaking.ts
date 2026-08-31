@@ -24,13 +24,10 @@ import {
   COMPETITORS_MIN,
   COMPETITORS_THREE_FROM,
   COMPETITORS_TWO_UP_TO,
-  DRAWING_ARTISTS_LARGE_ROOM,
-  DRAWING_LARGE_ROOM_FROM,
-  DRAWING_MAX_ARTISTS,
   MATCHMAKING_BACK_TO_BACK_PENALTY,
   MATCHMAKING_W_RECENCY,
 } from './constants.js';
-import type { Rng } from './rng.js';
+import { shuffle, type Rng } from './rng.js';
 
 export interface MatchmakingPlayer {
   readonly id: string;
@@ -141,32 +138,37 @@ export function votersForMatchup(
 }
 
 /**
- * How many drawings the finale runs.
+ * Which drawings the room actually sits through.
  *
- * Small rooms: everybody draws once (up to four). Big rooms: three drawings, chosen
- * lowest-score-first as a comeback mechanic. Always capped by how many drawable
- * subjects the story actually produced — a three-round match cannot supply four.
+ * Everybody draws — that costs nothing, because drawing is simultaneous — but every
+ * drawing *shown* costs a guess, a vote and a results screen. So the showcase is
+ * capped independently of the artist count, and this decides who makes the cut.
+ *
+ * Fewer standard-round wins first, which makes the showcase a comeback slot: the
+ * people the standard rounds passed over are the ones most likely to be shown. Within
+ * a tier of equal wins the choice is seeded-random, so two players who both won
+ * nothing are not separated by something arbitrary like their player id — over
+ * repeat matches the same person does not always miss out.
+ *
+ * Returns drawing indices in narrative order, so the showcase still follows the story.
  */
-export function artistCount(eligibleCount: number, availablePrompts: number): number {
-  const byRoomSize =
-    eligibleCount >= DRAWING_LARGE_ROOM_FROM ? DRAWING_ARTISTS_LARGE_ROOM : DRAWING_MAX_ARTISTS;
-  return Math.max(0, Math.min(eligibleCount, availablePrompts, byRoomSize));
-}
+export function selectShowcase(
+  candidates: readonly { drawingIndex: number; wins: number }[],
+  max: number,
+  rng: Rng,
+): number[] {
+  if (max <= 0 || candidates.length === 0) return [];
 
-/**
- * Pick the artists: lowest score first, so the finale is a genuine comeback slot.
- * Ties break on player id, keeping the choice reproducible in tests and replays.
- */
-export function selectArtists(
-  players: readonly { id: string; score: number; eligible: boolean }[],
-  availablePrompts: number,
-): string[] {
-  const eligible = players.filter((p) => p.eligible);
-  const wanted = artistCount(eligible.length, availablePrompts);
-  return [...eligible]
-    .sort((a, b) => a.score - b.score || a.id.localeCompare(b.id))
-    .slice(0, wanted)
-    .map((p) => p.id);
+  // Shuffle first, then a stable sort by wins: randomness inside each tier, strict
+  // preference between tiers.
+  const shuffled = shuffle(rng, candidates);
+  const chosen = shuffled
+    .map((candidate, order) => ({ candidate, order }))
+    .sort((a, b) => a.candidate.wins - b.candidate.wins || a.order - b.order)
+    .slice(0, max)
+    .map((entry) => entry.candidate.drawingIndex);
+
+  return chosen.sort((a, b) => a - b);
 }
 
 /** Test/diagnostic helper: the spread between the busiest and quietest player. */

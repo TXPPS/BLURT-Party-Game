@@ -19,6 +19,7 @@ import {
   ABANDONED_PHASE_MS,
   DRAWING_RESULTS_AUTO_MS,
   DRAWING_SETUP_MS,
+  DRAWING_SHOWCASE_MAX,
 } from '../../../shared/constants.js';
 import {
   advanceDrawingIndex,
@@ -29,8 +30,10 @@ import {
   uniqueHouseDecoyFor,
   isLastDrawing,
   outstandingArtists,
+  payUnshownArtists,
   recordGuess,
   resolveCurrentDrawing,
+  selectShowcaseDrawings,
 } from '../finale.js';
 import { drawMs, voteMs } from '../match.js';
 import { findPlayer, setPhaseDeadline, shortenPhaseDeadline } from '../roomState.js';
@@ -63,6 +66,9 @@ export const drawingActive: PhaseHandler = {
   },
 
   onTimeout(ctx) {
+    // Now, and only now, do we know who actually submitted — so this is where the
+    // showcase gets picked.
+    selectShowcaseDrawings(ctx.state, DRAWING_SHOWCASE_MAX);
     ctx.goTo('DRAWING_GUESS');
   },
 
@@ -150,6 +156,12 @@ export const drawingVote: PhaseHandler = {
 export const drawingResults: PhaseHandler = {
   onEnter(ctx) {
     resolveCurrentDrawing(ctx.state, ctx.now);
+
+    // Settle with the artists nobody had time to look at, here rather than on the way
+    // out, so the payment appears in this screen's score deltas next to the line that
+    // explains it. A score that moves with no visible reason is a bug report.
+    if (isLastDrawing(ctx.state)) payUnshownArtists(ctx.state);
+
     setPhaseDeadline(ctx.state, ctx.now, DRAWING_RESULTS_AUTO_MS);
 
     const drawing = currentDrawingRecord(ctx.state);

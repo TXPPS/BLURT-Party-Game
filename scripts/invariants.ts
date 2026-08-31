@@ -76,6 +76,21 @@ export function checkInvariants(bots: readonly Bot[]): InvariantFailure[] {
     }
   }
 
+  // 0b. Everybody draws.
+  //
+  //     The artist count used to be capped, so most of a big room watched the finale
+  //     rather than taking part. Now every connected player is dealt a prompt, and a
+  //     bot that reached DRAWING_ACTIVE without one is either a planning bug or the
+  //     cap creeping back in. Checked from the private payload, which is the only
+  //     place a prompt appears — a bot cannot draw without having been given one.
+  for (const bot of bots) {
+    if (!bot.phases.includes('DRAWING_ACTIVE')) continue;
+    if (bot.closed) continue;
+    if (!bot.sawDrawingPrompt) {
+      fail('everybody draws', `${bot.options.name}: reached DRAWING_ACTIVE with no prompt`);
+    }
+  }
+
   // 1. Legal transitions only — but against a short *path*, not a single edge.
   //
   //    A phase that is already satisfied when it is entered falls straight through

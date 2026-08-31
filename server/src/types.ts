@@ -139,7 +139,22 @@ export interface MatchState {
   /** True once the first STORY_UPDATE has run — gates revealing the story title. */
   titleRevealed: boolean;
   drawings: DrawingRecord[];
+  /**
+   * Indices into `drawings` that the room will actually sit through, chosen once
+   * DRAWING_ACTIVE ends and we know who submitted. Everybody draws; only these are
+   * guessed, voted on and scored. Empty until the showcase is picked.
+   */
+  showcase: number[];
+  /** Position within `showcase`, not within `drawings`. */
   drawingIndex: number;
+  /**
+   * What the artists who were never shown were paid.
+   *
+   * Kept so the payment can be *displayed* as well as applied: it is minted on the
+   * last showcase screen, alongside the line explaining why, so nobody's score moves
+   * without a visible reason.
+   */
+  unshownEvents: ScoreEvent[];
   /** Decided when the standard rounds end, from the settings and available prompts. */
   finalePlanned: boolean;
   /** Every point ever minted this match, for independent recomputation. */

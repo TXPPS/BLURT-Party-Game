@@ -4,6 +4,7 @@ import {
   ARTIST_PER_CORRECT,
   CLEAN_SWEEP_BONUS,
   DECOY_FOOLED_SOMEONE,
+  finalePoints,
   GUESSER_CORRECT,
   MATCHUP_WIN,
   VOTE_RECEIVED,
@@ -153,8 +154,8 @@ describe('resolveDrawing', () => {
   it('pays the guesser and the artist for a correct pick', () => {
     const result = resolveDrawing('p1', options, new Map([['p2', 'real']]), 2);
     const totals = pointsByPlayer(result.events);
-    expect(totals.get('p2')).toBe(GUESSER_CORRECT);
-    expect(totals.get('p1')).toBe(ARTIST_PER_CORRECT);
+    expect(totals.get('p2')).toBe(finalePoints(GUESSER_CORRECT));
+    expect(totals.get('p1')).toBe(finalePoints(ARTIST_PER_CORRECT));
     expect(result.correctVoterIds).toEqual(['p2']);
     expect(result.perfect).toBe(false);
   });
@@ -165,7 +166,7 @@ describe('resolveDrawing', () => {
       ['p4', 'd1'],
     ]);
     const result = resolveDrawing('p1', options, votes, 2);
-    expect(pointsByPlayer(result.events).get('p2')).toBe(DECOY_FOOLED_SOMEONE * 2);
+    expect(pointsByPlayer(result.events).get('p2')).toBe(finalePoints(DECOY_FOOLED_SOMEONE) * 2);
     expect(result.fooledCounts['p2']).toBe(2);
     expect(pointsByPlayer(result.events).has('p1')).toBe(false);
   });
@@ -178,7 +179,7 @@ describe('resolveDrawing', () => {
     const result = resolveDrawing('p1', options, votes, 2);
     expect(result.perfect).toBe(true);
     expect(pointsByPlayer(result.events).get('p1')).toBe(
-      ARTIST_PER_CORRECT * 2 + ARTIST_PERFECT_BONUS,
+      finalePoints(ARTIST_PER_CORRECT) * 2 + finalePoints(ARTIST_PERFECT_BONUS),
     );
   });
 

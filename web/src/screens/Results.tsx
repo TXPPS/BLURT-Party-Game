@@ -45,6 +45,7 @@ export function Awards({ awards }: { awards: readonly Award[] }): React.JSX.Elem
 export function Highlights({ highlights }: { highlights: HighlightReel }): React.JSX.Element {
   const hasAnything =
     highlights.topAnswers.length > 0 ||
+    highlights.gallery.length > 0 ||
     highlights.funniestDrawing !== null ||
     highlights.bestStoryLine !== null;
   if (!hasAnything) return <></>;
@@ -105,6 +106,38 @@ export function Highlights({ highlights }: { highlights: HighlightReel }): React
                 picked a lie instead
               </span>
             </p>
+          </div>
+        </Card>
+      )}
+
+      {highlights.gallery.length > 0 && (
+        <Card tilt="r">
+          <div className="stack stack--tight">
+            <p className="eyebrow">
+              The gallery{' '}
+              {highlights.gallery.some((entry) => !entry.showcased) && (
+                <span className="faint">· including the ones there was no time for</span>
+              )}
+            </p>
+            <ul className="gallery">
+              {highlights.gallery.map((entry) => (
+                <li key={entry.artistId} className="gallery__item">
+                  <DrawingFrame url={entry.imageUrl} artistName={entry.artistName} />
+                  <p className="gallery__caption">
+                    <AvatarBadge
+                      avatarId={entry.artistAvatarId}
+                      name={entry.artistName}
+                      size="sm"
+                      seed={entry.artistId}
+                    />
+                    <span className="breakable">
+                      <strong>{entry.artistName}</strong> drew{' '}
+                      <span className="gallery__subject">{entry.subject}</span>
+                    </span>
+                  </p>
+                </li>
+              ))}
+            </ul>
           </div>
         </Card>
       )}

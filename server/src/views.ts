@@ -12,6 +12,7 @@
 
 import { FINAL_STORY_LINE_MS } from '../../shared/constants.js';
 import type { PublicView, ResultAnswer } from '../../shared/views.js';
+import { unshownArtistIds } from './finale.js';
 import { computeMatchAwards, buildHighlightReel } from './results.js';
 import {
   eligiblePlayers,
@@ -233,7 +234,7 @@ export function buildPublicView(
         guessesIn: Object.keys(drawing?.guesses ?? {}).length,
         guessersTotal: guessers.length,
         drawingIndex: (match?.drawingIndex ?? 0) + 1,
-        drawingTotal: match?.drawings.length ?? 0,
+        drawingTotal: match?.showcase.length ?? 0,
         deadline,
       };
     }
@@ -251,13 +252,18 @@ export function buildPublicView(
         votesIn: Object.keys(drawing?.votes ?? {}).length,
         votersTotal: voters.length,
         drawingIndex: (match?.drawingIndex ?? 0) + 1,
-        drawingTotal: match?.drawings.length ?? 0,
+        drawingTotal: match?.showcase.length ?? 0,
         deadline,
       };
     }
 
     case 'DRAWING_RESULTS': {
       const artist = drawing === undefined ? undefined : findPlayer(state, drawing.artistId);
+      const onLastShowcase = (match?.drawingIndex ?? 0) >= (match?.showcase.length ?? 0) - 1;
+      const showcaseEvents = [
+        ...(drawing?.resolved?.events ?? []),
+        ...(onLastShowcase ? (match?.unshownEvents ?? []) : []),
+      ];
       const outcome = drawing?.resolved ?? null;
       const votersByOption = new Map<string, string[]>();
       for (const [voterId, optionId] of Object.entries(drawing?.votes ?? {})) {
@@ -284,10 +290,14 @@ export function buildPublicView(
         }),
         realOptionId: outcome?.realOptionId ?? '',
         perfect: outcome?.perfect ?? false,
-        deltas: buildDeltas(state, outcome?.events ?? []),
-        leaderboard: buildLeaderboard(state, outcome?.events ?? []),
+        // The gallery payout rides along on the last screen, so the room sees it.
+        deltas: buildDeltas(state, showcaseEvents),
+        leaderboard: buildLeaderboard(state, showcaseEvents),
         drawingIndex: (match?.drawingIndex ?? 0) + 1,
-        drawingTotal: match?.drawings.length ?? 0,
+        // Of the *showcase*, not of everybody who drew — those are different numbers
+        // now, which is why the last screen explains itself.
+        drawingTotal: match?.showcase.length ?? 0,
+        unshownArtistCount: onLastShowcase ? unshownArtistIds(state).length : 0,
         deadline,
       };
     }

@@ -2,8 +2,13 @@
  * BLURT — finale balance.
  *
  * The design constraint: the drawing finale must be worth playing for, without
- * making the five standard rounds a warm-up act. The brief fixes that at 25–35% of
- * all points awarded, averaged over many matches.
+ * making the five standard rounds a warm-up act. The band is 22–38% of all points
+ * awarded, averaged over many matches.
+ *
+ * Everybody draws now, and up to `DRAWING_SHOWCASE_MAX` of those drawings are shown.
+ * Artists who drew but were not shown are paid the median of what the showcased
+ * artists earned, so the finale pays more people than it used to — which is exactly
+ * why `FINALE_MULTIPLIER` exists and is the only thing tuned here.
  *
  * This is a real Monte-Carlo simulation of the actual scoring functions — not a
  * closed-form approximation and not a rubber stamp. It runs 1,000 matches at 4, 6
@@ -18,7 +23,6 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  artistCount,
   selectCompetitors,
   votersForMatchup,
   type MatchmakingPlayer,
@@ -27,16 +31,18 @@ import {
   resolveDrawing,
   resolveMatchup,
   totalPoints,
+  unshownArtistComp,
   type DrawingOption,
   type MatchupAnswer,
   type ScoreEvent,
 } from '../shared/scoring.js';
+import { DRAWING_SHOWCASE_MAX } from '../shared/constants.js';
 import { makeRng, randomInt, type Rng } from '../shared/rng.js';
 
 const STANDARD_ROUNDS = 5;
 const MATCHES = 1000;
-const MIN_SHARE = 0.25;
-const MAX_SHARE = 0.35;
+const MIN_SHARE = 0.22;
+const MAX_SHARE = 0.38;
 
 /** A five-round match plus a finale, played by uniformly random voters. */
 function simulateMatch(playerCount: number, rng: Rng): { standard: ScoreEvent[]; finale: ScoreEvent[] } {
@@ -80,12 +86,13 @@ function simulateMatch(playerCount: number, rng: Rng): { standard: ScoreEvent[];
     );
   }
 
-  // The finale. Every played slot yields a drawable subject, so prompts are never
-  // the binding constraint at five rounds.
+  // The finale. Everybody draws; only the first `DRAWING_SHOWCASE_MAX` are shown and
+  // scored, and the rest are paid the median of what the shown artists earned.
   const finale: ScoreEvent[] = [];
-  const drawings = artistCount(playerCount, STANDARD_ROUNDS);
+  const showcased = Math.min(playerCount, DRAWING_SHOWCASE_MAX);
+  const showcasedArtistEarnings: number[] = [];
 
-  for (let index = 0; index < drawings; index += 1) {
+  for (let index = 0; index < showcased; index += 1) {
     const artistId = `p${index % playerCount}`;
     const others = players.map((p) => p.id).filter((id) => id !== artistId);
 
@@ -101,7 +108,17 @@ function simulateMatch(playerCount: number, rng: Rng): { standard: ScoreEvent[];
       if (choice !== undefined) votes.set(voterId, choice.id);
     }
 
-    finale.push(...resolveDrawing(artistId, options, votes, others.length).events);
+    const events = resolveDrawing(artistId, options, votes, others.length).events;
+    finale.push(...events);
+    showcasedArtistEarnings.push(
+      events.filter((e) => e.playerId === artistId).reduce((sum, e) => sum + e.points, 0),
+    );
+  }
+
+  // Everybody who drew and was not shown.
+  const comp = unshownArtistComp(showcasedArtistEarnings);
+  for (let index = showcased; index < playerCount; index += 1) {
+    if (comp > 0) finale.push({ playerId: `p${index}`, points: comp, reason: 'artist_unshown' });
   }
 
   return { standard, finale };

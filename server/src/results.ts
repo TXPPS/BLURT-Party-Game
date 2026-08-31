@@ -44,7 +44,7 @@ export function computeMatchAwards(state: RoomState): Award[] {
 export function buildHighlightReel(state: RoomState, images: ImageLookup): HighlightReel {
   const match = state.match;
   if (match === null) {
-    return { topAnswers: [], funniestDrawing: null, bestStoryLine: null };
+    return { topAnswers: [], gallery: [], funniestDrawing: null, bestStoryLine: null };
   }
 
   const scored: HighlightAnswer[] = [];
@@ -107,5 +107,22 @@ export function buildHighlightReel(state: RoomState, images: ImageLookup): Highl
       ? null
       : { text: bestWinner.text, authorName: bestWinner.authorName, votes: bestWinner.votes };
 
-  return { topAnswers, funniestDrawing, bestStoryLine };
+  // Every drawing that arrived, showcased or not — the four the room sat through and
+  // the ones it ran out of time for.
+  const shown = new Set(match.showcase);
+  const gallery = match.drawings.flatMap((drawing) => {
+    if (!drawing.hasImage) return [];
+    const artist = state.players.find((p) => p.id === drawing.artistId);
+    if (artist === undefined) return [];
+    return [{
+      artistId: artist.id,
+      artistName: artist.name,
+      artistAvatarId: artist.avatarId,
+      imageUrl: images(drawing.index),
+      subject: drawing.subject,
+      showcased: shown.has(drawing.index),
+    }];
+  });
+
+  return { topAnswers, gallery, funniestDrawing, bestStoryLine };
 }

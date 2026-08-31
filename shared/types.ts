@@ -244,8 +244,27 @@ export interface HighlightAnswer {
   promptLabel: string;
 }
 
+/** One picture in the end-of-match gallery. */
+export interface GalleryDrawing {
+  artistId: string;
+  artistName: string;
+  artistAvatarId: string;
+  imageUrl: string;
+  /** What they were actually asked to draw. Safe to reveal once the match is over. */
+  subject: string;
+  /** False for a drawing the finale had no time to show. */
+  showcased: boolean;
+}
+
 export interface HighlightReel {
   topAnswers: HighlightAnswer[];
+  /**
+   * Every drawing that was actually submitted, showcased or not.
+   *
+   * Everybody draws but only four are shown, so without this the other artists would
+   * do the work and never see their picture on screen at all.
+   */
+  gallery: GalleryDrawing[];
   funniestDrawing: {
     artistId: string;
     artistName: string;

@@ -225,6 +225,20 @@ export const DRAWING_MAX_ARTISTS = 4;
 export const DRAWING_LARGE_ROOM_FROM = 6;
 export const DRAWING_ARTISTS_LARGE_ROOM = 3;
 
+/**
+ * How many drawings the room actually sits through.
+ *
+ * Everybody draws — that is free, because drawing is simultaneous — but every drawing
+ * *shown* costs a guess, a vote and a results screen, and that is what makes a finale
+ * long. So the two numbers are decoupled: artists scale with the room, the showcase
+ * does not.
+ *
+ * Four, not six, until there is a measurement that says otherwise. Each extra showcase
+ * adds roughly 70 seconds of worst case at NORMAL, and the showcase is the half people
+ * watch rather than do.
+ */
+export const DRAWING_SHOWCASE_MAX = 4;
+
 /* ------------------------------------------------------------------ *
  * Client storage keys
  * ------------------------------------------------------------------ */

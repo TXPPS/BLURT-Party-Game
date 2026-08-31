@@ -72,6 +72,8 @@ export class Bot {
   readonly received: ServerMessage[] = [];
   readonly phases: Phase[] = [];
   readonly errors: { code: string; message: string }[] = [];
+  /** True once this bot has been given a drawing brief of its own. */
+  sawDrawingPrompt = false;
   /** Round-trip samples, tagged with the phase each was taken in. */
   readonly rtt: { phase: Phase; ms: number }[] = [];
   /**
@@ -136,6 +138,7 @@ export class Bot {
       }
       case 'private':
         this.privateMsg = message;
+        if (message.drawingPrompt !== undefined) this.sawDrawingPrompt = true;
         break;
       case 'state': {
         const previous = this.state?.phase;

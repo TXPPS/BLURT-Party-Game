@@ -14,9 +14,9 @@ import {
   findPlayer,
   roomExpiresAt,
 } from './roomState.js';
-import { drawingForArtist } from './finale.js';
+import { currentDrawingRecord, drawingForArtist } from './finale.js';
 import { storyById } from './story.js';
-import type { DrawingRecord, MatchupRecord, RoomState, ServerPlayer } from './types.js';
+import type { MatchupRecord, RoomState, ServerPlayer } from './types.js';
 
 /**
  * Builds the HTTP URL for a drawing. The bytes live outside the JSON state (see
@@ -38,11 +38,16 @@ export function currentMatchup(state: RoomState): MatchupRecord | undefined {
   return match.matchups[match.matchupIndex];
 }
 
-export function currentDrawing(state: RoomState): DrawingRecord | undefined {
-  const match = state.match;
-  if (match === null) return undefined;
-  return match.drawings[match.drawingIndex];
-}
+/**
+ * The drawing the showcase is on.
+ *
+ * Re-exported rather than reimplemented: there used to be a second copy of this here
+ * that indexed `drawings` directly. The moment `drawingIndex` started walking the
+ * showcase instead, the two disagreed — views and private payloads pointed at a
+ * different picture than the one being scored, and guessers were shown options for a
+ * drawing nobody was voting on. One definition, in `finale.ts`.
+ */
+export { currentDrawingRecord as currentDrawing };
 
 export function buildPublicRoom(state: RoomState): PublicRoom {
   const match = state.match;
@@ -120,7 +125,7 @@ export function buildDeltas(state: RoomState, events: readonly ScoreEvent[]): Sc
 
 export function roleFor(state: RoomState, player: ServerPlayer): PlayerRole {
   const matchup = currentMatchup(state);
-  const drawing = currentDrawing(state);
+  const drawing = currentDrawingRecord(state);
 
   switch (state.phase) {
     case 'ROUND_PROMPT':

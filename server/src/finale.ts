@@ -6,9 +6,10 @@
  * the vote is between the truth and the group's own lies.
  */
 
-import { artistCount, selectArtists } from '../../shared/matchmaking.js';
+import { GENERIC_DRAWING_PROMPTS, GENERIC_PROMPT_CONTEXT } from '../../content/genericPrompts.js';
+import { selectShowcase } from '../../shared/matchmaking.js';
 import { makeRng, randomInt, seedFromString, shuffle } from '../../shared/rng.js';
-import { resolveDrawing, type DrawingOption } from '../../shared/scoring.js';
+import { resolveDrawing, unshownArtistComp, type DrawingOption } from '../../shared/scoring.js';
 import { shortId } from './ids.js';
 import { applyEvents, rngFor } from './match.js';
 import { eligiblePlayers, findPlayer, isEligible, nextSeq } from './roomState.js';
@@ -18,10 +19,17 @@ import type { DrawingRecord, RoomState } from './types.js';
 /**
  * Decide who draws and what.
  *
- * Artists are chosen lowest-score-first — the finale is a genuine comeback slot, not
- * a victory lap. The number of drawings is capped by room size (see
- * `shared/matchmaking.artistCount`) and by how many drawable subjects the story
- * actually produced, so a one-round match cannot promise four drawings.
+ * **Everybody eligible draws.** Drawing is simultaneous, so a tenth artist costs the
+ * room nothing in wall-clock time — the old cap existed only because drawings used to
+ * run one after another, and it was doing a job that no longer needs doing. What is
+ * still capped is the *showcase*, decided later in `selectShowcaseDrawings` once we
+ * know who actually submitted.
+ *
+ * Prompts come from the story wherever possible, because drawing something a player
+ * wrote is the joke. There are only ever as many of those as there were rounds — a
+ * three-round match yields three — so the shortfall is filled from
+ * `GENERIC_DRAWING_PROMPTS` rather than cutting artists back to the prompt supply.
+ * Every artist gets a distinct subject either way.
  *
  * Returns false when the finale cannot run at all, which the caller turns into a
  * clean skip straight to the results rather than an empty screen.
@@ -30,28 +38,29 @@ export function planFinale(state: RoomState, now: number): boolean {
   const match = state.match;
   if (match === null) return false;
 
-  const prompts = availableDrawingPrompts(match);
   const eligible = eligiblePlayers(state, now);
-  const wanted = artistCount(eligible.length, prompts.length);
-  if (wanted <= 0 || eligible.length < 2) return false;
+  if (eligible.length < 2) return false;
 
-  const artistIds = selectArtists(
-    state.players.map((p) => ({
-      id: p.id,
-      score: p.score,
-      eligible: eligible.some((e) => e.id === p.id),
-    })),
-    prompts.length,
-  );
+  const derived = availableDrawingPrompts(match);
+  const rng = rngFor(state, match.drawings.length, 'finale-prompts');
 
-  match.drawings = artistIds.map((artistId, index) => {
-    const prompt = prompts[index];
-    const record: DrawingRecord = {
+  // Generic prompts are dealt from a shuffled deck so a room that plays twice does
+  // not get the same fallbacks in the same order.
+  const spares = shuffle(rng, GENERIC_DRAWING_PROMPTS);
+
+  // Lowest score first keeps the old comeback flavour in the *order* drawings are
+  // recorded, which is the order the showcase presents them in.
+  const artists = [...eligible].sort((a, b) => a.score - b.score || a.id.localeCompare(b.id));
+
+  match.drawings = artists.map((artist, index) => {
+    const prompt = derived[index];
+    const spare = spares[(index - derived.length) % spares.length];
+    return {
       index,
       roundId: shortId('d', nextSeq(state)),
-      artistId,
-      subject: prompt?.subject ?? 'something indescribable',
-      context: prompt?.context ?? '',
+      artistId: artist.id,
+      subject: prompt?.subject ?? spare ?? 'something indescribable',
+      context: prompt?.context ?? (prompt === undefined ? GENERIC_PROMPT_CONTEXT : ''),
       storyId: prompt?.storyId ?? '',
       slotId: prompt?.slotId ?? '',
       hasImage: false,
@@ -59,24 +68,64 @@ export function planFinale(state: RoomState, now: number): boolean {
       options: [],
       votes: {},
       resolved: null,
-    };
-    return record;
+    } satisfies DrawingRecord;
   });
+
   match.drawingIndex = 0;
+  match.showcase = [];
   match.finalePlanned = match.drawings.length > 0;
 
-  for (const artistId of artistIds) {
-    const player = findPlayer(state, artistId);
+  for (const artist of artists) {
+    const player = findPlayer(state, artist.id);
     if (player !== undefined) player.stats.drawingsMade += 1;
   }
 
   return match.finalePlanned;
 }
 
+/**
+ * The drawing the showcase is currently on.
+ *
+ * `drawingIndex` walks `showcase`, not `drawings` — everybody draws, but only the
+ * showcased ones are guessed and voted on, so the two lists are different lengths.
+ */
 export function currentDrawingRecord(state: RoomState): DrawingRecord | undefined {
   const match = state.match;
   if (match === null) return undefined;
-  return match.drawings[match.drawingIndex];
+  const drawingIndex = match.showcase[match.drawingIndex];
+  return drawingIndex === undefined ? undefined : match.drawings[drawingIndex];
+}
+
+/**
+ * Choose which drawings the room sits through, once DRAWING_ACTIVE has ended.
+ *
+ * Only drawings that actually arrived are eligible: showing a blank because somebody
+ * timed out is a fine joke once, but it is a poor use of one of four slots when other
+ * people did the work. If nobody submitted at all, fall back to showing the blanks so
+ * the finale still resolves rather than skipping to the scores.
+ */
+export function selectShowcaseDrawings(state: RoomState, max: number): void {
+  const match = state.match;
+  if (match === null) return;
+
+  const submitted = match.drawings.filter((d) => d.hasImage);
+  const pool = submitted.length > 0 ? submitted : match.drawings;
+
+  const candidates = pool.map((drawing) => ({
+    drawingIndex: drawing.index,
+    wins: findPlayer(state, drawing.artistId)?.stats.wins ?? 0,
+  }));
+
+  match.showcase = selectShowcase(candidates, max, rngFor(state, match.drawings.length, 'showcase'));
+  match.drawingIndex = 0;
+}
+
+/** Artists whose drawing arrived but never made the showcase. */
+export function unshownArtistIds(state: RoomState): string[] {
+  const match = state.match;
+  if (match === null) return [];
+  const shown = new Set(match.showcase);
+  return match.drawings.filter((d) => d.hasImage && !shown.has(d.index)).map((d) => d.artistId);
 }
 
 export function recordGuess(state: RoomState, playerId: string, text: string): void {
@@ -204,9 +253,48 @@ export function submittedDrawingCount(state: RoomState): number {
   return allDrawings(state).filter((d) => d.hasImage).length;
 }
 
+/**
+ * Pay the artists whose drawing was never shown.
+ *
+ * They did exactly the same work as the four who made the showcase and had no
+ * opportunity to earn from it, which would otherwise be a straight penalty for losing
+ * a coin flip. Each is paid the median of what the showcased artists actually earned
+ * on the night — see `unshownArtistComp` for why the median.
+ *
+ * Called once, on the way to the results screen, so the leaderboard is already right
+ * when it appears rather than jumping afterwards.
+ */
+export function payUnshownArtists(state: RoomState): void {
+  const match = state.match;
+  if (match === null) return;
+  if (match.unshownEvents.length > 0) return;      // already settled
+
+  const unshown = unshownArtistIds(state);
+  if (unshown.length === 0) return;
+
+  // What each showcased artist made from their own drawing, and nothing else.
+  const earnings = match.showcase.map((drawingIndex) => {
+    const drawing = match.drawings[drawingIndex];
+    if (drawing?.resolved == null) return 0;
+    return drawing.resolved.events
+      .filter((event) => event.playerId === drawing.artistId)
+      .reduce((sum, event) => sum + event.points, 0);
+  });
+
+  const points = unshownArtistComp(earnings);
+  if (points <= 0) return;
+
+  match.unshownEvents = unshown.map((playerId) => ({
+    playerId,
+    points,
+    reason: 'artist_unshown' as const,
+  }));
+  applyEvents(state, match.unshownEvents);
+}
+
 export function isLastDrawing(state: RoomState): boolean {
   const match = state.match;
-  return match === null || match.drawingIndex >= match.drawings.length - 1;
+  return match === null || match.drawingIndex >= match.showcase.length - 1;
 }
 
 export function advanceDrawingIndex(state: RoomState): void {
