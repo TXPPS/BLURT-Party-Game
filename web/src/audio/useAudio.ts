@@ -16,8 +16,10 @@ import { LOCAL_UI_SFX, isSfxEventId, type SfxEventId } from '@shared/sfx.js';
 import type { GameMode } from '@shared/types.js';
 import { isPlayableInMode, recipeFor, resolveEvent } from './events.js';
 import { Synth, type MixerLevels } from './synth.js';
+import { MUSIC_DUCK_SECONDS, MUSIC_LEVEL } from '@shared/constants.js';
+import { MusicPlayer, type MusicTrack } from './musicPlayer.js';
 
-const DEFAULT_LEVELS: MixerLevels = { master: 0.7, sfx: 0.9, music: 0.35, muted: false };
+const DEFAULT_LEVELS: MixerLevels = { master: 0.7, sfx: 0.9, music: MUSIC_LEVEL, muted: false };
 
 function loadLevels(): MixerLevels {
   try {
@@ -48,18 +50,21 @@ export interface AudioHandle {
   unlock(): void;
   unlocked: boolean;
   /**
-   * Start or stop the music bed.
+   * Choose the music track, or null for silence.
    *
    * Driven by the caller rather than by this hook, because whether a device *should*
    * carry the music is a property of the device (shared screen or one phone in a
    * pocket), not of the audio engine.
    */
-  setMusic(on: boolean, seed?: number): void;
+  setMusic(track: MusicTrack | null): void;
 }
 
 export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
   const synthRef = useRef<Synth | null>(null);
   const [levels, setLevelsState] = useState<MixerLevels>(loadLevels);
+  const musicRef = useRef<MusicPlayer | null>(null);
+  const levelsRef = useRef(levels);
+  levelsRef.current = levels;
   const [unlocked, setUnlocked] = useState(false);
 
   const modeRef = useRef(mode);
@@ -71,6 +76,9 @@ export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
 
   useEffect(() => {
     synthRef.current?.setLevels(levels);
+    // Mute is the master gain, which the music bus already feeds through — but the
+    // slider itself has to reach the player directly.
+    musicRef.current?.setLevel(levels.music);
     saveLevels(levels);
   }, [levels]);
 
@@ -82,6 +90,10 @@ export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
   // means the game never makes a sound before somebody has touched it.
   useEffect(() => {
     const handler = (): void => unlock();
+    // Fires on any key, including one typed into a field, and that is correct: typing
+    // a name is a gesture, and this listener never calls preventDefault or
+    // stopPropagation, so it cannot take a keystroke away from the input it came from.
+    // A future window-level *shortcut* would need a focus guard. This is not one.
     window.addEventListener('pointerdown', handler, { once: true });
     window.addEventListener('keydown', handler, { once: true });
     return () => {
@@ -111,19 +123,27 @@ export function useAudio(mode: GameMode, playDramatic: boolean): AudioHandle {
     (event: SfxEventId) => {
       if (!isSfxEventId(event)) return;
       if (!dramaticRef.current) return;
-      // A sting and a music bed at the same level fight each other, and the sting is
-      // the one carrying information. Pull the bed down for the length of the moment.
-      synthRef.current?.duckMusic();
+      // A sting and music at the same level fight each other, and the sting is the
+      // one carrying information. Pull the music down for the length of the moment.
+      musicRef.current?.duckFor(MUSIC_DUCK_SECONDS);
       play(event);
     },
     [play],
   );
 
-  const setMusic = useCallback((on: boolean, seed = 0) => {
+  const setMusic = useCallback((track: MusicTrack | null) => {
     const synth = synthRef.current;
     if (synth === null) return;
-    if (on) synth.startMusic(seed);
-    else synth.stopMusic();
+
+    if (musicRef.current === null) {
+      const ctx = synth.context;
+      const destination = synth.musicDestination;
+      // Before the first user gesture there is no AudioContext, so there is nothing
+      // to attach to yet. The next call after unlock will build it.
+      if (ctx === null || destination === null) return;
+      musicRef.current = new MusicPlayer(ctx, destination);
+    }
+    void musicRef.current.play(track, levelsRef.current.music);
   }, []);
 
   return useMemo(

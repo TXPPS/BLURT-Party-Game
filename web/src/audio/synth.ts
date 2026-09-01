@@ -1,10 +1,13 @@
 /**
  * BLURT — the synthesis engine.
  *
- * There are no audio files in this project and there never will be. Every sound is
- * built at runtime from oscillators, a noise buffer, filters and envelopes. That
- * guarantees originality, removes all licensing risk, and costs the bundle a couple
- * of kilobytes instead of a couple of megabytes.
+ * Every *sound effect* is built at runtime from oscillators, a noise buffer, filters
+ * and envelopes — no sample files. That guarantees originality, removes all licensing
+ * risk, and costs the bundle a couple of kilobytes instead of a couple of megabytes.
+ *
+ * Music is the one exception, and it does not live here. The procedural bed this file
+ * used to generate is gone; two supplied files play through `musicPlayer.ts` into the
+ * music bus below. See `web/public/music/README.md`.
  *
  * A sound is a `Recipe`: a list of `Voice`s, each of which is one oscillator or one
  * burst of noise with its own envelope, optional pitch glide, optional filter sweep
@@ -12,7 +15,7 @@
  * click to a sad trombone.
  */
 
-import { MusicBed } from './music.js';
+import { MUSIC_LEVEL } from '../../../shared/constants.js';
 
 export interface Voice {
   /** `tone` is an oscillator; `noise` is a filtered burst of white noise. */
@@ -65,9 +68,14 @@ export class Synth {
   private master: GainNode | null = null;
   private sfxBus: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
+  /**
+   * Where music is mixed. The channel stays — the mixer slider drives it and the
+   * file-based player connects to it — but nothing in *this* file generates music
+   * any more. The procedural bed that used to live here was removed after a playtest
+   * called it a loud drone; the SFX synthesis below is untouched and is fine.
+   */
   private musicBus: GainNode | null = null;
-  private readonly bed = new MusicBed();
-  private levels: MixerLevels = { master: 0.7, sfx: 0.9, music: 0.4, muted: false };
+  private levels: MixerLevels = { master: 0.7, sfx: 0.9, music: MUSIC_LEVEL, muted: false };
 
   /** True once a user gesture has unlocked audio. */
   get ready(): boolean {
@@ -95,23 +103,17 @@ export class Synth {
     if (this.sfxBus !== null && this.ctx !== null) {
       this.sfxBus.gain.setTargetAtTime(levels.sfx, this.ctx.currentTime, 0.02);
     }
-    if (this.ctx !== null && this.bed.playing) this.bed.setLevel(this.ctx, levels.music);
   }
 
-  /** Start the music bed. Idempotent, and silent until audio has been unlocked. */
-  startMusic(seed: number): void {
+  /** The AudioContext, once unlocked. The music player needs it to decode and route. */
+  get context(): AudioContext | null {
+    return this.ctx;
+  }
+
+  /** The node music connects to, so the mixer's music slider governs it. */
+  get musicDestination(): GainNode | null {
     this.ensureContext();
-    if (this.ctx === null || this.musicBus === null) return;
-    this.bed.start(this.ctx, this.musicBus, this.levels.music, seed);
-  }
-
-  stopMusic(): void {
-    if (this.ctx !== null && this.bed.playing) this.bed.stop(this.ctx);
-  }
-
-  /** Pull the bed down so a sting or a reveal is not fighting it. */
-  duckMusic(seconds = 2.2): void {
-    if (this.ctx !== null && this.bed.playing) this.bed.duckFor(this.ctx, seconds);
+    return this.musicBus;
   }
 
   private ensureContext(): void {

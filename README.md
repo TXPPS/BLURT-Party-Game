@@ -394,7 +394,7 @@ Measured on the production build, not estimated:
 | Code-split, not in the initial load | drawing canvas 1.9 KB · crude avatar pack 1.7 KB · crude name pool 1.0 KB |
 | Fonts | 76 KB, two latin-subset variable woff2, self-hosted, cached after first load |
 | Images | **zero** — every avatar is an inline SVG component |
-| Audio files | **zero** — every sound is synthesised at runtime |
+| Audio files | **zero shipped** — every sound effect is synthesised at runtime. Music is two optional files you drop in `web/public/music`; absent, the game is simply quieter |
 
 Server side, the message rate is bounded by how fast people can tap: broadcasts fire
 on state change only, coalesced into a 50ms window, and never on a timer tick. The
@@ -453,7 +453,7 @@ a handful of `requestAnimationFrame` loops.
 | **Two-player finale share** | At exactly 2 players the drawing finale is 34.7% of all points — the highest of any player count, though now inside the band. With two people a finale *should* weigh more, so this is accepted rather than tuned away. |
 | **No persistence** | Room state lives in the Durable Object for the session. Close every tab for 30 minutes and the room is gone, by design. |
 | **Content volume** | 4 classic and 3 crude stories, 70 slots. Enough to play repeat matches without repeating a story, not enough for a long night. Engine quality was prioritised over content volume; adding a story is two steps (CONTENT_GUIDE §1). |
-| **Music** | The mixer has a music channel and it is silent. Building a procedural soundtrack was out of scope. |
+| **Music is bring-your-own** | The mixer's music channel plays two loops — a lobby track and a game track — read from `web/public/music` at runtime. The repo ships none, so out of the box those screens are silent; see `web/public/music/README.md` for the filenames. Licensing the music is the operator's call, which is why it is not baked in. |
 | **Drawing transport** | A rasterised PNG, not a stroke list, so a drawing cannot be replayed or re-scaled after submission. Undo works client-side only, before submitting. |
 | **Blocklist false positive** | The place name "Niger" cannot appear in generated content, a consequence of collapsing repeated letters to defeat elongation. It only gates content we author ourselves. |
 | **Single region per room** | A room lives wherever its Durable Object was created. A group spread across continents will have one player with worse latency. |
@@ -491,7 +491,8 @@ Wanted, and the first things worth doing next:
 
 Everything here is original: the game, the stories, the prompts, the name pools, the
 avatar art, the sound design, and the code. No copyrighted art, fonts, sounds,
-characters or scraped assets.
+characters or scraped assets. The music folder ships empty for the same reason:
+anything dropped in there is the operator's to license.
 
 The only third-party assets are two typefaces — **Fredoka** and **Inter** — both under
 the SIL Open Font License 1.1, vendored as latin-subset woff2 files and served from

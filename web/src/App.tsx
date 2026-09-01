@@ -16,6 +16,8 @@ import { Home } from './screens/Home.js';
 import { Room } from './screens/Room.js';
 import { UnsupportedScreen, unsupportedBrowser } from './screens/ErrorScreen.js';
 import type { GameMode } from '@shared/types.js';
+import type { MusicTrack } from './audio/musicPlayer.js';
+import { LOBBY_PHASES } from './audio/musicPhases.js';
 
 interface Target {
   code: string;
@@ -55,22 +57,30 @@ export function App(): React.JSX.Element {
   useEffect(() => setIsHost(hostNow), [hostNow]);
 
   /**
-   * The music bed plays on whichever device is carrying the room for everybody — the
-   * host's screen, or anything switched to the big-screen layout — and stays off on a
-   * pocketful of phones, which would otherwise be eight copies of the same loop
-   * slightly out of phase. Same rule as the dramatic stings, for the same reason.
+   * Which of the two tracks belongs to the screen we are on.
    *
-   * Seeded from the room code so two rooms are not humming the same four chords.
+   * The split is "is anybody under time pressure": lobby music covers the screens
+   * where people are arriving, reading or gloating, and game music covers the ones
+   * with a clock. FINAL_RESULTS goes back to the lobby track deliberately — the match
+   * is over and the room is talking again.
    */
-  const carriesMusic = playsDramaticSfx(prefs, hostNow) && room.state !== null;
-  const roomCode = room.state?.room.code ?? '';
+  const musicTrack = ((): MusicTrack | null => {
+    const phase = room.state?.phase;
+    if (phase === undefined) return 'lobby';
+    return LOBBY_PHASES.has(phase) ? 'lobby' : 'game';
+  })();
+
+  /**
+   * Music plays on whichever device is carrying the room for everybody — the host's
+   * screen, or anything switched to the big-screen layout — and stays off on a
+   * pocketful of phones, which would be six copies of one loop drifting out of sync.
+   * Same rule as the dramatic stings, for the same reason.
+   */
+  const carriesMusic = playsDramaticSfx(prefs, hostNow);
   useEffect(() => {
     if (!audio.unlocked) return;
-    let seed = 0;
-    for (const ch of roomCode) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-    audio.setMusic(carriesMusic, seed);
-    return () => audio.setMusic(false);
-  }, [audio, carriesMusic, roomCode]);
+    audio.setMusic(carriesMusic ? musicTrack : null);
+  }, [audio, carriesMusic, musicTrack]);
 
   const goHome = useCallback(() => {
     const url = new URL(location.href);

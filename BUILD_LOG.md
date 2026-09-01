@@ -1149,6 +1149,123 @@ drift. It still builds, because wrangler uploads `web/dist` as the site's assets
 
 ---
 
+## PHASE 19 — THE SPACE BAR, AND MUSIC THAT COMES FROM FILES
+
+**Driving role:** Audio Designer + Client Engineer · **Auditor:** QA Lead
+
+Two reports off the same playtest. The stated cause of the first one was wrong, and
+saying so early changed the fix.
+
+### The space bar
+
+> "Pressing space in a text input does nothing — a global key handler is swallowing it."
+
+There is no global Space handler in this project. There are exactly **two**
+window-level key listeners in the whole client, and neither can take a keystroke from
+an input:
+
+| Where | Registered on | Keys | Can it swallow typing? |
+|---|---|---|---|
+| `audio/useAudio.ts` — audio unlock | `window`, `{ once: true }` | any key, once | **No.** It calls `unlock()` and returns. No `preventDefault`, no `stopPropagation` |
+| `components/kit.tsx` — `Modal` | `window`, while a closable modal is open | `Escape` only | **No.** And Escape closing the dialog you are typing in is the behaviour you want |
+
+Nothing else listens for a key. No `onKeyDown`/`onKeyUp`/`onKeyPress` prop exists
+anywhere in the client, no `ctrlKey`/`metaKey` chord is read, and no code compares a
+key to `' '` or `'Space'`. Enter is handled only by native form submission, which is
+per-form and cannot leak across screens.
+
+So the report's premise was wrong, and the real cause was in `shared/sanitize.ts`.
+`sanitizeText` ends with
+
+```ts
+text = text.replace(/\s+/gu, ' ').trim();
+```
+
+and `clampText` — which the inputs called on **every keystroke** — ran the whole
+pipeline including that `.trim()`. Type `two`, space, and the space is the trailing
+character, so it is trimmed before React writes the value back. The field never
+advances past `two`, and it looks exactly like a swallowed keypress.
+
+Proof, before the fix: feeding `'two words'` a character at a time through the old
+`clampText` yields `'twowords'`.
+
+The fix is `clampWhileTyping`, a sibling that does the safety work — NFKC, invisible
+and bidi strip, combining-mark cap, code-point length cap — and leaves whitespace
+alone. Submission still goes through the full `sanitizeText`, so a trailing space is
+trimmed exactly once, at the point where it means something. Both call sites moved:
+`Identify.tsx` (name) and `playerParts.tsx` (answer, guess, drawing caption).
+
+A shared `isTypingTarget`/`whenNotTyping` guard was written for the unlock listener
+and then **deleted before commit**. Routing that listener through it produced an `if`
+whose branches were identical — it unlocks either way — and left `whenNotTyping` with
+no caller at all, which is dead code by the rule this repo has held since Phase 13.
+The audit above is the deliverable, not a guard against a handler that does not exist.
+When a real window-level shortcut is added, it needs a focus check; the comment on the
+unlock listener says so at the place someone would copy from.
+
+Mutation-tested, because a test that cannot fail is not a test:
+
+| Mutation | Expected | Result |
+|---|---|---|
+| restore `.trim()` in `clampWhileTyping` | tests fail | **2 failed** |
+| drop the length cap | tests fail | **1 failed** |
+
+And confirmed in a real browser, not jsdom — four Chromium contexts, real key events
+with a delay, on the two screens that were reported:
+
+```
+name field: typed "Tester One"    -> "Tester One"     OK
+answer box: typed "a big red hat" -> "a big red hat"  OK
+  trailing space kept while typing: "a big red hat "  OK
+```
+
+### Music
+
+The procedural bed added in the previous pass was, correctly, called a loud drone. It
+is gone: `web/src/audio/music.ts` and its test are deleted, and `synth.ts` keeps its
+music **bus** and nothing that generates into it. SFX synthesis is untouched.
+
+In its place, two files supplied per-deployment, in `web/public/music`:
+
+| Track | Files, in preference order | Phases |
+|---|---|---|
+| lobby | `lobby.ogg`, `lobby.mp3` | LOBBY · GAME_SETUP · FINAL_STORY · FINAL_RESULTS |
+| game | `game.ogg`, `game.mp3` | every phase with a clock running |
+
+Ogg first because Vorbis stores an exact sample count, so `loop` is gapless; MP3
+carries encoder padding at both ends and ticks. The split is "is anybody under time
+pressure", and FINAL_RESULTS goes back to the lobby track on purpose — the match is
+over and the room is talking again.
+
+`MUSIC_LEVEL = 0.12`. Much quieter than the bed it replaces, and quieter than feels
+right in headphones, because it is competing with a room.
+
+**Absent files are the normal case**, since the folder ships empty. That turned out to
+be the one thing worth testing hardest, because the obvious check is wrong here: the
+site is served with `not_found_handling = "single-page-application"`, so a missing
+track returns **200 with `text/html`**, and the first version of `firstPlayable`
+happily handed a page of HTML to an `<audio>` element:
+
+```
+$ curl -sI http://localhost:8791/music/lobby.ogg | grep -i content-type
+content-type: text/html; charset=utf-8        # 200 OK, and not a track
+```
+
+So the content type decides, not the status. Verified both ways in Chromium, with
+`AudioParam.setTargetAtTime` and `HTMLMediaElement.play` instrumented so the fades are
+observable from outside the app:
+
+| Case | Observed |
+|---|---|
+| folder empty | 0 plays · 0 music ramps · **0 console errors or warnings** · game unaffected |
+| only `.mp3` present | `.ogg` rejected on content type, `.mp3` played — the fallback works |
+| lobby → round | `lobby.mp3` then `game.mp3`; old gain ramped to `0.000`, new one up |
+| a dramatic sting | `0.120 → 0.030` (level × 0.25) and back — ducking |
+| music slider → 50% | music target `0.500`, master and SFX untouched |
+| mute on / off | master `0.000` then `0.700`; music keeps its own level under it |
+| a player's phone | **0 plays** — music is a property of the shared screen |
+
+
 ## FINAL INTEGRATION REVIEW
 
 **Driving role:** Final Integration Reviewer
@@ -1270,7 +1387,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 
 | Proposed by | Idea | Ruling |
 |---|---|---|
-| Audio Designer | A procedural music loop for the lobby and the final story. | **Rejected.** The brief says "do not spend session time on a soundtrack". The mixer keeps its music channel; it is silent, and README says so. |
+| Audio Designer | A procedural music loop for the lobby and the final story. | **Rejected, then briefly overturned, then vindicated.** The original ruling stood on "do not spend session time on a soundtrack". A playtest asked for music, a procedural bed was built, and the next playtest called it a loud drone — so Phase 19 deleted it and made music two supplied files instead. Generating a soundtrack was the wrong idea both times it was tried. |
 | Content Designer | A fifth and sixth classic story to widen the rotation. | **Rejected.** "Engine quality > content volume." Seven stories is enough to prove repeat matches without repeats; the linter and the two disguise lints matter more than the eighth story. |
 | Technical Director | A `SocketHub` class to take socket bookkeeping out of `RoomDO`. | **Deferred, not rejected.** It is better code. It also rewrites every send and close path in the system after the suite had gone green, to land at ~490 lines — still over the ceiling it was meant to satisfy. Wrong change for the last hour of a build. → FUTURE. |
 
@@ -1285,7 +1402,7 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | A group can open the site, create a room, share a code and join in ~10 seconds | Home → START A ROOM → code on screen; join is four letters and a name |
 | ✅ | Full match at 2, 4 and 10 players, both modes, with and without the finale | Matrix **16/16** |
 | ✅ | The bot harness passes the full fault-injection list | 22 cases, all green |
-| ✅ | All unit + integration tests pass, including the finale balance test | **267 passing**; finale lands 26.0–34.7% across 2–10 players |
+| ✅ | All unit + integration tests pass, including the finale balance test | **279 passing**; finale lands 26.0–34.7% across 2–10 players |
 | ✅ | Visual audit screenshots captured, issues found **and fixed**, before/after logged | Phase 9 — 14 findings, all fixed |
 | ✅ | No horizontal scroll or clipping at 320px on any screen | Asserted against the live DOM at every breakpoint, not eyeballed |
 | ✅ | Reconnect restores identity, score and the correct phase view | Fault cases "reconnect mid-round" and "host leaves and returns" |
@@ -1298,5 +1415,5 @@ Producer rejected two in-scope-adjacent ideas during the build:
 | ✅ | Git tree clean, history intact, meaningful commits | Conventional commits, one per phase gate plus audit fixes |
 | ✅ | Adversarial review complete with findings fixed or documented | Phase 11; everything unfixed is in README → KNOWN LIMITATIONS |
 | ✅ | Architecture constraints hold: `/shared` pure, ~350-line ceiling, zero magic numbers | Phase 13. Purity re-verified; 8 oversized files → 4, with `RoomDO` an argued exception stated in README; two duplicated constants fixed |
-| ✅ | Originality and licensing clean | Zero audio files, one hand-written favicon, no bundled art, OFL text and copyright notices shipped with both fonts |
+| ✅ | Originality and licensing clean | Zero audio files shipped — every sound effect is synthesised, and the music folder is empty by design so anything in it is the operator's to license — one hand-written favicon, no bundled art, OFL text and copyright notices shipped with both fonts |
 | ✅ | Security guards verified rather than assumed | The `dangerouslySetInnerHTML` ban probed with real violations in both the JSX and `createElement` forms; both error |

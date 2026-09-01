@@ -88,8 +88,26 @@ export function sanitizeText(input: unknown, options: SanitizeOptions): Sanitize
  * Lenient variant used for client-side input feedback: never rejects, just returns
  * the best legal version of what the player has typed so far.
  */
-export function clampText(input: string, maxLength: number): string {
-  return sanitizeText(input, { maxLength, allowEmpty: true }).value;
+/**
+ * Trim a value to length *while somebody is still typing it*.
+ *
+ * This deliberately does **not** collapse or trim whitespace, and that is the whole
+ * point. `sanitizeText` finishes with `.replace(/\s+/gu, ' ').trim()`, which is right
+ * for a submitted value and catastrophic for a controlled input: every keystroke went
+ * through it, so pressing space at the end of a word produced a trimmed string, React
+ * wrote the old value back, and the space vanished. Typing "two words" gave
+ * "twowords" and multi-word answers were impossible.
+ *
+ * What still happens here is everything that must never reach component state:
+ * NFKC normalisation, invisible and bidi characters stripped, combining marks capped,
+ * length enforced. Collapsing and trimming happen on submit — and again on the
+ * server, which is the actual authority.
+ */
+export function clampWhileTyping(input: string, maxLength: number): string {
+  let text = input.normalize('NFKC').replace(INVISIBLE_AND_BIDI, '');
+  text = capCombiningMarks(text);
+  const points = [...text];
+  return points.length > maxLength ? points.slice(0, maxLength).join('') : text;
 }
 
 function capCombiningMarks(text: string): string {

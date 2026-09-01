@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DRAWING_GUESS_MAX_LENGTH } from '@shared/constants.js';
 import type { PrivateMessage, StateMessage } from '@shared/protocol.js';
-import { clampText, textLength } from '@shared/sanitize.js';
+import { clampWhileTyping, textLength } from '@shared/sanitize.js';
 import { ActionButton, Card, CharCount, DrawingFrame, PhaseTitle } from '../components/kit.js';
 
 /** Seconds remaining at which a player's own device warns them. */
@@ -140,7 +140,7 @@ export function AnswerForm({
             className="textarea breakable"
             value={text}
             onChange={(event) => {
-              setText(clampText(event.target.value, prompt.charLimit));
+              setText(clampWhileTyping(event.target.value, prompt.charLimit));
               setSent(false);
             }}
             placeholder="Say the first thing. It is usually the funniest."
@@ -210,7 +210,7 @@ export function GuessForm({
             className="input breakable"
             value={text}
             onChange={(event) => {
-              setText(clampText(event.target.value, DRAWING_GUESS_MAX_LENGTH));
+              setText(clampWhileTyping(event.target.value, DRAWING_GUESS_MAX_LENGTH));
               setSent(false);
             }}
             maxLength={DRAWING_GUESS_MAX_LENGTH * 2}

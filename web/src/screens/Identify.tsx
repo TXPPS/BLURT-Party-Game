@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NAME_MAX_LENGTH } from '@shared/constants.js';
 import { generateName, mergePools, type NamePools } from '@shared/nameGenerator.js';
-import { clampText, textLength } from '@shared/sanitize.js';
+import { clampWhileTyping, textLength } from '@shared/sanitize.js';
 import { makeRng, seedFromString } from '@shared/rng.js';
 import { classicNamePools } from '@content/classic/names.js';
 import type { GameMode } from '@shared/types.js';
@@ -81,7 +81,7 @@ export function Identify({ mode, adultAcknowledged, onSubmit, onSound, playerId 
                 id="player-name"
                 className="input"
                 value={name}
-                onChange={(event) => setName(clampText(event.target.value, NAME_MAX_LENGTH))}
+                onChange={(event) => setName(clampWhileTyping(event.target.value, NAME_MAX_LENGTH))}
                 maxLength={NAME_MAX_LENGTH * 2}
                 placeholder="Suspicious Gary"
                 autoComplete="off"

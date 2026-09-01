@@ -257,7 +257,36 @@ export const DRAWING_SHOWCASE_MAX = 3;
  * Client storage keys
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * Music
+ * ------------------------------------------------------------------ */
+
+/**
+ * Default music level, and deliberately low.
+ *
+ * The procedural bed this replaced defaulted to 0.35 and a playtest called it a loud
+ * drone. Bed music is furniture: it should be noticed when it stops, not while it
+ * plays. SFX stay at 0.9, so music sits roughly 18dB under them out of the box and
+ * anyone who wants more can push the slider.
+ */
+export const MUSIC_LEVEL = 0.12;
+
+/** Crossfade between tracks. Short on purpose — this is a party game, not a film. */
+export const MUSIC_CROSSFADE_MS = 700;
+
+/** How long music stays down under a reveal or a sting. */
+export const MUSIC_DUCK_SECONDS = 2.2;
+
 /** sessionStorage (not localStorage) so a second tab is a new player, not a hijack. */
 export const SESSION_STORAGE_KEY = 'blurt.session.v1';
-export const MIXER_STORAGE_KEY = 'blurt.mixer.v1';
+/**
+ * Bumped to v2 when the music default dropped from 0.35 to MUSIC_LEVEL.
+ *
+ * The mixer saves on mount, so every device that ran the procedural-bed build has
+ * `music: 0.35` sitting in storage, and the loader merges stored values over the
+ * defaults. Without a new key the quieter default would reach new devices only — and
+ * miss every playtester who asked for it. One reset of the sliders is the cheaper
+ * mistake. Device preferences live under their own key and are not affected.
+ */
+export const MIXER_STORAGE_KEY = 'blurt.mixer.v2';
 export const DEVICE_PREFS_STORAGE_KEY = 'blurt.device.v1';

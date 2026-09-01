@@ -24,9 +24,6 @@
     "server/src/story.ts",
     "server/src/types.ts",
     "web/src/brand.ts",
-    // Pure enough to test from here: it only touches Web Audio types, which this
-    // project already has via lib.dom.
-    "web/src/audio/music.ts",
     "shared/**/*.ts",
     "content/**/*.ts",
     "vitest.config.ts"
