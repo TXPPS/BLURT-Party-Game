@@ -87,6 +87,36 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Every deploy from run 1 to run 6 failed inside wrangler with "it's necessary to
+      # set a CLOUDFLARE_API_TOKEN". That message is wrangler's way of saying the action
+      # was handed an empty input: the `with:` block in those logs lists only `command`
+      # and `wranglerVersion`, because GitHub omits inputs that evaluate to an empty
+      # string. The workflow was asking for the right secrets; they were not reaching it.
+      #
+      # This step turns that into one line at the top of the job. It never prints a
+      # secret — only whether each one is non-empty.
+      - name: The deploy secrets are actually present
+        env:
+          HAVE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAVE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          set -euo pipefail
+          missing=''
+          [ "$HAVE_TOKEN" = 'true' ] || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ "$HAVE_ACCOUNT" = 'true' ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::This workflow cannot see:$missing"
+            echo "Check three things, in this order:"
+            echo "  1. Scope. They must be *repository* secrets — Settings → Secrets and"
+            echo "     variables → Actions → Repository secrets. Secrets added under an"
+            echo "     Environment are invisible unless the job declares that environment,"
+            echo "     and Dependabot secrets are never visible to Actions at all."
+            echo "  2. Repository. They must live on TXPPS/BLURT-Party-Game itself."
+            echo "  3. Spelling, exactly: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          echo "Both secrets are present and non-empty."
+
       - name: Deploy
         id: deploy
         uses: cloudflare/wrangler-action@v3

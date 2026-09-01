@@ -201,6 +201,7 @@ realistic failure modes are all account-level rather than code:
 
 | Symptom | Cause |
 |---|---|
+| `In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN` | **The workflow cannot see the secrets.** Not a token problem — an empty input. See below |
 | `Authentication error [10000]` | Token is wrong, expired, or lacks Workers Scripts:Edit |
 | `workers.dev subdomain not registered` | The account has never had one; register it once in the dashboard under Workers & Pages |
 | `Durable Objects require a paid plan` | SQLite-backed Durable Objects are on the free plan, but an account with an unusual entitlement can still refuse |
@@ -208,3 +209,30 @@ realistic failure modes are all account-level rather than code:
 
 If it does fail, the error is in the **Deploy** step of the workflow run, verbatim from
 wrangler.
+
+### "It's necessary to set a CLOUDFLARE_API_TOKEN"
+
+This one is worth calling out because it reads like a token problem and is not. Every
+deploy run from the first through the sixth failed on it, while the `build` gate ahead
+of it passed each time, so the repository looked healthier than it was: **the live URL
+has never actually been updated by CI.**
+
+Wrangler prints that message when it receives *no* token at all. The proof is in the
+action's own log — the `with:` block lists `command` and `wranglerVersion` and nothing
+else, because GitHub omits inputs that evaluate to an empty string. The workflow asks
+for `secrets.CLOUDFLARE_API_TOKEN`; what it got was empty.
+
+A preflight step now fails the job on that condition with the reason named, before
+wrangler runs. Three things make secrets invisible to a workflow, in the order worth
+checking:
+
+1. **Wrong scope.** They have to be *repository* secrets: Settings → Secrets and
+   variables → Actions → **Repository secrets**. A secret added under an *Environment*
+   is only visible to a job that declares `environment:`, and a **Dependabot** secret
+   is never visible to Actions.
+2. **Wrong repository.** They have to be on `TXPPS/BLURT-Party-Game` itself. An
+   organisation-level secret also has to grant this repository access.
+3. **Spelling.** Exactly `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+Adding or fixing a secret does not re-run anything by itself. Re-run the last deploy
+from the Actions tab, or push again.
